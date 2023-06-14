@@ -3,10 +3,10 @@ namespace Nomenclature_Namer
 {
     public abstract class Element
     {
-        protected int[] bondIndexes;
+        public int[] bondIndexes; //make protected
         protected string name;
         public string Name { get { return name; } }
-        public int BondsFree { get { return Array.FindAll(bondIndexes, i => i != -1).Length; } }
+        public int BondsFree { get { return Array.FindAll(bondIndexes, i => i == -1).Length; } }
         public void addHalfBond(int bondIndex, int bondOrder) //bond order; 1 = single, 2 = double etc
         {
             for (int i = 0; i < bondOrder; i++)
@@ -27,6 +27,13 @@ namespace Nomenclature_Namer
     }
     public class Carbon : Element
     {
+        public Carbon(int bondIndex, int bondOrder)
+        {
+            bondIndexes = new int[4];
+            Array.Fill(bondIndexes, -1);
+            addHalfBond(bondIndex, bondOrder);
+            name = "Carbon";
+        }
         public Carbon()
         {
             bondIndexes = new int[4];
@@ -38,9 +45,15 @@ namespace Nomenclature_Namer
     {
         public Hydrogen(int bondIndex)
         {
-            bondIndexes = new int[4];
+            bondIndexes = new int[1];
             Array.Fill(bondIndexes, -1);
             addHalfBond(bondIndex);
+            name = "Hydrogen";
+        }
+        public Hydrogen()
+        {
+            bondIndexes = new int[1];
+            Array.Fill(bondIndexes, -1);
             name = "Hydrogen";
         }
     }
@@ -53,6 +66,12 @@ namespace Nomenclature_Namer
             addHalfBond(bondIndex, bondOrder);
             name = "Oxygen";
         }
+        public Oxygen()
+        {
+            bondIndexes = new int[2];
+            Array.Fill(bondIndexes, -1);
+            name = "Oxygen";
+        }
     }
     public class Nitrogen : Element
     {
@@ -61,6 +80,12 @@ namespace Nomenclature_Namer
             bondIndexes = new int[3];
             Array.Fill(bondIndexes, -1);
             addHalfBond(bondIndex, bondOrder);
+            name = "Nitrogen";
+        }
+        public Nitrogen()
+        {
+            bondIndexes = new int[3];
+            Array.Fill(bondIndexes, -1);
             name = "Nitrogen";
         }
 

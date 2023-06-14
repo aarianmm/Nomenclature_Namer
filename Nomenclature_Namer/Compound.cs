@@ -16,7 +16,7 @@ namespace Nomenclature_Namer
             chainLength = countChar(SF, 'C');
             branchLengths = new int[countChar(SF, '(')];
             stem = new funcionalGroup[chainLength];
-            compileMainStem(SF);
+            //compileMainStem(SF);
         }
 
         private int countChar(string SF, char c)  //recursion hehe
@@ -74,93 +74,93 @@ namespace Nomenclature_Namer
             return core;
         }
 
-        private void compileMainStem(string SF)  //branches with functional groups not implimented yet
-        {
+    //    private void compileMainStem(string SF)  //branches with functional groups not implimented yet
+    //    {
 
-            //compound.Add(new funcionalGroup(00000, -1, 0, "ane", false));
-            int chainLength = 0;
-            int currentBranch = 0;  //useless atm?
-            int quantity = 1;  //NEED TO DEAL WITH CF4 - NUMBERS AFTER HALOGENS, ALSO, WHAT IF MULTIPLE THINGS ON SAME CARBON??
-            bool mainBranch = true;
-            for (int i = 0; i < SF.Length; i++)
-            {
-                if (SF[i] == '(' && SF[i + 1] == 'C' && mainBranch)
-                {
-                    currentBranch++;
-                    BranchLengths[currentBranch] = i;
-                    mainBranch = false;
-                }
-                else if (SF[i] == ')' && SF[i + 1] == 'C' && !mainBranch)
-                {
-                    BranchLengths[currentBranch] = i - BranchLengths[currentBranch];
-                    mainBranch = true;
-                }
-                if (SF[i] == 'B')
-                {
-                    int.TryParse(SF[i + 1].ToString(), out quantity);
-                    for (int j = 0; j < quantity; j++)
-                    {
-                        Stem[chainLength, i] = (new funcionalGroup(00000, -1, "bromo", true));   //branches with functional groups not implimented yet
-                    }
-                }
-                else if (SF[i] == 'l')
-                {
-                    int.TryParse(SF[i + 1].ToString(), out quantity);
-                    for (int j = 0; j < quantity; j++)
-                    {
-                        Stem[chainLength, i] = (new funcionalGroup(00000, -1, "chloro", true));
-                    }
-                }
-                else if (SF[i] == 'F')
-                {
-                    int.TryParse(SF[i + 1].ToString(), out quantity);
-                    for (int j = 0; j < quantity; j++)
-                    {
-                        Stem[chainLength, j] = (new funcionalGroup(00000, -1, "fluoro", true));
-                    }
-                }
-                else if (SF[i] == 'I')
-                {
-                    int.TryParse(SF[i + 1].ToString(), out quantity);
-                    for (int j = 0; j < quantity; j++)
-                    {
-                        Stem[chainLength, j] = (new funcionalGroup(00000, -1, "iodo", true));
-                    }
-                }
-                else if (SF.Substring(i, 3) == "OOH")
-                {
-                    Stem[chainLength, 1] = (new funcionalGroup(00000, 5, "oic acid", false));
-                }
-                else if (SF.Substring(i, 3) == "OH")
-                {
-                    Stem[chainLength, 1] = (new funcionalGroup(00000, 2, "hydroxy", "ol"));
-                }
-                else if (SF[i] == '=')
-                {
-                    if (SF[i + 1] == 'O')
-                    {
-                        if (chainLength == 1 || SF[i + 1] == '!' || SF[i + 2] == '!') //at the end of the chain - can optimise if carbon chain length is calculated beforehand
-                        {
-                            Stem[chainLength, i] = (new funcionalGroup(00000, 4, "formyl", "al"));
-                        }
-                        else
-                        {
-                            Stem[chainLength, i] = (new funcionalGroup(00000, 3, "oxo", "one"));
-                        }
-                    }
-                    else
-                    {
-                        Stem[chainLength, i] = (new funcionalGroup(00000, 1, "ene", false));
-                    }
-                }
-                else if ((SF[i] == 'C' || SF[i] == 'c') && mainBranch)
-                {
-                    chainLength++;
-                }
-            }
+    //        //compound.Add(new funcionalGroup(00000, -1, 0, "ane", false));
+    //        int chainLength = 0;
+    //        int currentBranch = 0;  //useless atm?
+    //        int quantity = 1;  //NEED TO DEAL WITH CF4 - NUMBERS AFTER HALOGENS, ALSO, WHAT IF MULTIPLE THINGS ON SAME CARBON??
+    //        bool mainBranch = true;
+    //        for (int i = 0; i < SF.Length; i++)
+    //        {
+    //            if (SF[i] == '(' && SF[i + 1] == 'C' && mainBranch)
+    //            {
+    //                currentBranch++;
+    //                BranchLengths[currentBranch] = i;
+    //                mainBranch = false;
+    //            }
+    //            else if (SF[i] == ')' && SF[i + 1] == 'C' && !mainBranch)
+    //            {
+    //                BranchLengths[currentBranch] = i - BranchLengths[currentBranch];
+    //                mainBranch = true;
+    //            }
+    //            if (SF[i] == 'B')
+    //            {
+    //                int.TryParse(SF[i + 1].ToString(), out quantity);
+    //                for (int j = 0; j < quantity; j++)
+    //                {
+    //                    Stem[chainLength, i] = (new funcionalGroup(00000, -1, "bromo", true));   //branches with functional groups not implimented yet
+    //                }
+    //            }
+    //            else if (SF[i] == 'l')
+    //            {
+    //                int.TryParse(SF[i + 1].ToString(), out quantity);
+    //                for (int j = 0; j < quantity; j++)
+    //                {
+    //                    Stem[chainLength, i] = (new funcionalGroup(00000, -1, "chloro", true));
+    //                }
+    //            }
+    //            else if (SF[i] == 'F')
+    //            {
+    //                int.TryParse(SF[i + 1].ToString(), out quantity);
+    //                for (int j = 0; j < quantity; j++)
+    //                {
+    //                    Stem[chainLength, j] = (new funcionalGroup(00000, -1, "fluoro", true));
+    //                }
+    //            }
+    //            else if (SF[i] == 'I')
+    //            {
+    //                int.TryParse(SF[i + 1].ToString(), out quantity);
+    //                for (int j = 0; j < quantity; j++)
+    //                {
+    //                    Stem[chainLength, j] = (new funcionalGroup(00000, -1, "iodo", true));
+    //                }
+    //            }
+    //            else if (SF.Substring(i, 3) == "OOH")
+    //            {
+    //                Stem[chainLength, 1] = (new funcionalGroup(00000, 5, "oic acid", false));
+    //            }
+    //            else if (SF.Substring(i, 3) == "OH")
+    //            {
+    //                Stem[chainLength, 1] = (new funcionalGroup(00000, 2, "hydroxy", "ol"));
+    //            }
+    //            else if (SF[i] == '=')
+    //            {
+    //                if (SF[i + 1] == 'O')
+    //                {
+    //                    if (chainLength == 1 || SF[i + 1] == '!' || SF[i + 2] == '!') //at the end of the chain - can optimise if carbon chain length is calculated beforehand
+    //                    {
+    //                        Stem[chainLength, i] = (new funcionalGroup(00000, 4, "formyl", "al"));
+    //                    }
+    //                    else
+    //                    {
+    //                        Stem[chainLength, i] = (new funcionalGroup(00000, 3, "oxo", "one"));
+    //                    }
+    //                }
+    //                else
+    //                {
+    //                    Stem[chainLength, i] = (new funcionalGroup(00000, 1, "ene", false));
+    //                }
+    //            }
+    //            else if ((SF[i] == 'C' || SF[i] == 'c') && mainBranch)
+    //            {
+    //                chainLength++;
+    //            }
+    //        }
 
-            BranchLengths[0] = chainLength - BranchLengths.Sum();
-        }
+    //        BranchLengths[0] = chainLength - BranchLengths.Sum();
+    //    }
     }
 }
 

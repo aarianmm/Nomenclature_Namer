@@ -33,16 +33,6 @@ namespace Nomenclature_Namer
             this.alphebatism = name[1] - 96;
         }
 
-        public void addBond(int index)
-        {
-            for (int i = 0; i < bondIndexes.Length; i++)
-            {
-                if (bondIndexes[i] == 0)
-                {
-                    bondIndexes[i] = index;
-                }
-            }
-        }
     }
 
 }
