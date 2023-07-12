@@ -6,6 +6,7 @@ namespace Nomenclature_Namer
         public int[] bondIndexes; //make protected
         protected string name;
         public string Name { get { return name; } }
+        public int MaxBonds { get { return bondIndexes.Length; } }
         public int BondsFree { get { return Array.FindAll(bondIndexes, i => i == -1).Length; } }
         public void addHalfBond(int bondIndex, int bondOrder) //bond order; 1 = single, 2 = double etc
         {
@@ -27,18 +28,24 @@ namespace Nomenclature_Namer
     }
     public class Carbon : Element
     {
+        private int carbonNumber;
+        public int CarbonNumber { get { return carbonNumber; } set { carbonNumber = value; } }
         public Carbon(int bondIndex, int bondOrder)
         {
             bondIndexes = new int[4];
             Array.Fill(bondIndexes, -1);
             addHalfBond(bondIndex, bondOrder);
             name = "Carbon";
+
+            carbonNumber = -1;
         }
         public Carbon()
         {
             bondIndexes = new int[4];
             Array.Fill(bondIndexes, -1);
             name = "Carbon";
+
+            carbonNumber = -1;
         }
     }
     public class Hydrogen : Element

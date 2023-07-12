@@ -2,6 +2,16 @@
 
 ElementGraph bob = new ElementGraph();
 
+
+//Element[] chain = new Element[6];  test revieled that carbon number stays but is hidden in array
+//chain[1] = new Carbon();
+//Carbon cheeky = (Carbon)chain[1];
+//cheeky.CarbonNumber = 2;
+//chain[1] = cheeky;
+//Carbon bob = (Carbon)chain[1];
+//Console.WriteLine(bob.CarbonNumber);
+
+
 Console.ReadLine();
 ////while (true) { Console.WriteLine(longestChainLength(Console.ReadLine())); }
 
