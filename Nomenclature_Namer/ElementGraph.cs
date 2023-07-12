@@ -9,16 +9,18 @@ namespace Nomenclature_Namer
     public class ElementGraph
     {
         public List<Element> chain;
-        private int startIndex;
-
         public ElementGraph()
         {
             chain = new List<Element>();
             //compileElementGraph(SF);
             Carbon root = new Carbon();
             SpellOutAtoms(root);
-            startIndex = findStart();
-            numberCarbons();
+            List<int> ends = findEnds();
+            foreach(int end in ends) // for(int i=0; i<ends.Count;i++) // - pass i to numberCarbons so final 'if else' can check that all carbon numbers are filled if error occurs - 'else if (chain.Count(x => x.Name == "Carbon" && ((Carbon)x).CarbonNumber.Count != i+1 ) == 0) // no incomplete lists
+            {
+                numberCarbons(ends[end]);
+            }
+            Console.WriteLine("Done");
         }
         public void addFullBond(int index1, int index2, int bondorder)
         {
@@ -48,7 +50,7 @@ namespace Nomenclature_Namer
             //    Console.WriteLine(i);
             //}
             //Console.WriteLine(chain[rootAtomIndex].BondsFree);
-            while (Console.ReadLine() != "!")
+            do
             {
                 while (chain[rootAtomIndex].BondsFree > 0)
                 {
@@ -83,16 +85,13 @@ namespace Nomenclature_Namer
                     addFullBond(rootAtomIndex, currentAtomIndex, bondOrder);
                     currentAtomIndex++;
                 }
-                if (chain.Count(x => x.BondsFree > 0) == 0) //all full
-                {
-                    Console.WriteLine("All done.");
-                    Console.ReadLine();
-                    return;
-                }
 
                 rootAtomIndex++;
                 rootAtom = chain[rootAtomIndex];
-            }
+
+            } while (chain.Count(x => x.BondsFree > 0) > 0); //do while there are bonds to be made
+            Console.WriteLine("All done.");
+            Console.ReadLine();
         }
         private int alkylCounter(int index)
         {
@@ -106,24 +105,38 @@ namespace Nomenclature_Namer
         {
             return chain[index].bondIndexes.First(x => x > 0 && chain[x].Name == "Carbon" && !exclude.Contains(x));
         }
-        private int findStart()
+        private List<int> findEnds()
         {
-            for (int chainIndex = 0; chainIndex < chain.Count; chainIndex++)
+            List<int> ends = new List<int>();
+            for (int j = 0; j < 2; j++)
             {
-                if (chain[chainIndex].Name == "Carbon")
+                for (int chainIndex = 0; chainIndex < chain.Count; chainIndex++)
                 {
-                    //Carbon currentCarbon = (Carbon)chain[chainIndex];
-                    int alkylCount = alkylCounter(chainIndex);
-                    //Console.WriteLine($"{chainIndex} has {alkylCount} alkyl groups");
-                    if (alkylCount == 0 || alkylCount == 1) // isolated carbon or at the start of the chain
+                    if (chain[chainIndex].Name == "Carbon")
                     {
-                        return chainIndex;
+                        //Carbon currentCarbon = (Carbon)chain[chainIndex];
+                        int alkylCount = alkylCounter(chainIndex);
+                        //Console.WriteLine($"{chainIndex} has {alkylCount} alkyl groups");
+                        if (alkylCount == 0) // isolated carbon
+                        {
+                            //return new HashSet<int> { chainIndex }; //only one end as one element - bug: can be R-O-C-O-R
+                            ends.Add(chainIndex);
+                            break;
+                        }
+                        if (alkylCount == 1 && !ends.Contains(chainIndex)) //unique end
+                        {
+                            ends.Add(chainIndex);
+                        }
                     }
                 }
             }
-            return -1; //no start?
+            if (ends.Count == 0)
+            {
+                throw new Exception("No ends?");
+            }
+            return ends;
         }
-        private void numberCarbons()
+        private void numberCarbons(int startIndex)
         {
             Queue<int> indexToReturnTo = new Queue<int>(); //might need tuple idk
             int chainIndex = startIndex;
@@ -134,7 +147,7 @@ namespace Nomenclature_Namer
                 //Console.WriteLine(chainIndex);
                 if (chain[chainIndex].Name == "Carbon")
                 {
-                    ((Carbon)chain[chainIndex]).CarbonNumber = carbonNumber; // set carbon number -- reealised i needed to enclose the whole thing in brackets
+                    ((Carbon)chain[chainIndex]).CarbonNumber.Add(carbonNumber); // set carbon number -- reealised i needed to enclose the whole thing in brackets
                     int unvisitedAdjacentCarbons = alkylCounter(chainIndex, visited);
                     if (unvisitedAdjacentCarbons >= 2) //unvisited branch exists here
                     {
@@ -148,20 +161,25 @@ namespace Nomenclature_Namer
                     else if (unvisitedAdjacentCarbons == 0 && indexToReturnTo.Count > 0) //dead end, return to branch
                     {
                         chainIndex = indexToReturnTo.Dequeue();
-                        carbonNumber = ((Carbon)chain[chainIndex]).CarbonNumber; //return the carbon number to before
+                        carbonNumber = ((Carbon)chain[chainIndex]).CarbonNumber.Last(); //return the carbon number to before
                         chainIndex = nextCarbon(chainIndex, visited);
                     }
-                    else if (chain.Count(x => x.Name == "Carbon" && ((Carbon)x).CarbonNumber == -1) == 0) //all carbon numbers filled
+                    else //all carbon numbers filled - additional condition can be added- find comment on foreach loop in ElementGraph constructor
                     {
                         return;
                     }
-                    else //dead end but all arent filled
-                    {
-                        throw new Exception("Error"); //fix this
-                    }
+                    //else //dead end but all arent filled
+                    //{
+                    //    throw new Exception("Error"); //fix this
+                    //}
                     carbonNumber++;
                 }
             }
+        }
+
+        private void findMainBranch() // can only do after priority functional group identified
+        {
+
         }
 
         //private void compileElementGraph(string SF)

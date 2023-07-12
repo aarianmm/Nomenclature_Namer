@@ -28,8 +28,8 @@ namespace Nomenclature_Namer
     }
     public class Carbon : Element
     {
-        private int carbonNumber;
-        public int CarbonNumber { get { return carbonNumber; } set { carbonNumber = value; } }
+        private List<int> carbonNumber;
+        public List<int> CarbonNumber { get { return carbonNumber; } set { carbonNumber = value; } }
         public Carbon(int bondIndex, int bondOrder)
         {
             bondIndexes = new int[4];
@@ -37,7 +37,7 @@ namespace Nomenclature_Namer
             addHalfBond(bondIndex, bondOrder);
             name = "Carbon";
 
-            carbonNumber = -1;
+            carbonNumber = new List<int>();
         }
         public Carbon()
         {
@@ -45,7 +45,7 @@ namespace Nomenclature_Namer
             Array.Fill(bondIndexes, -1);
             name = "Carbon";
 
-            carbonNumber = -1;
+            carbonNumber = new List<int>();
         }
     }
     public class Hydrogen : Element
