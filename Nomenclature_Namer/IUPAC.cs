@@ -65,14 +65,20 @@ namespace Nomenclature_Namer
         public IUPAC(ElementGraph atoms)
         {
             this.atoms = atoms;
-            this.groups = atoms.Groups;
-
+            Dictionary<HashSet<string>, string> b = new Dictionary<HashSet<string>, string>();
+            b.Add(new HashSet<string> { "C-O", "C=O" }, "COOH");
+            atoms.MergeFunctionalGroups(b);
+            groups = atoms.Groups;
+            //atoms.DisplayGroupsDebug();
+            Console.ReadLine();
             spec.prefixOrSuffix = new Dictionary<string, (string, string, int)>();
             spec.prefixOrSuffix.Add("C≡N", ("cyano", "nitrile", 9));
             spec.prefixOrSuffix.Add("C-O", ("hydroxy", "ol", 2));
+            spec.prefixOrSuffix.Add("COOH", ("carbonic", "oic acid", 10));
             spec.prefixOrSuffix.Add("", ("", "e", 0));
             spec.prefixOnly = new Dictionary<string, string>();
             spec.prefixOnly.Add("C-F", "fluoro");
+            spec.prefixOnly.Add("C-Cl", "chloro");
             spec.prefixOnly.Add("C-Br", "bromo");
             spec.prefixOnly.Add("C-I", "iodo");
             spec.endDependentPrefixOrSuffix = new Dictionary<string, ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)>();
@@ -81,7 +87,7 @@ namespace Nomenclature_Namer
             spec.middle.Add("C=C", ("en", 2));
             spec.middle.Add("C≡C", ("yn", 1));
             spec.middle.Add("", ("an", 0));
-            spec.numericalPrefixes = new string[] { "", "", "di", "tri" };
+            spec.numericalPrefixes = new string[] { "", "", "di", "tri", "tetra" };
             spec.alkylNames = new string[] { "", "meth", "eth", "prop", "but", "pent", "hex", "hept", "octo", "non", "dec" };
             //DisplaySpecDebug();
             CheckGroups(this.groups);
@@ -91,18 +97,18 @@ namespace Nomenclature_Namer
             //Console.WriteLine($" at start {allPathsAndBranches.Count} paths");
             allPathsAndBranches = NarrowDownPathsByBranches(longestPaths);
             suffixFormula = "";
-            suffixRoot = "";
+            suffixRoot = spec.prefixOrSuffix[""].suffix;
             FindHighestPrioritySuffix();
-            Console.WriteLine("suffix formula is " + suffixFormula);
-            Console.WriteLine("suffix root is " + suffixRoot);
-            if (suffixIsEnd)
-            {
-                Console.WriteLine("it is end");
-            }
-            if (suffixIsMiddle)
-            {
-                Console.WriteLine("it is middle");
-            }
+            //Console.WriteLine("suffix formula is " + suffixFormula);
+            //Console.WriteLine("suffix root is " + suffixRoot);
+            //if (suffixIsEnd)
+            //{
+            //    Console.WriteLine("it is end");
+            //}
+            //if (suffixIsMiddle)
+            //{
+            //    Console.WriteLine("it is middle");
+            //}
             
             //showpathdebug("start");
             if (longestPaths.Count == 0)
@@ -134,7 +140,7 @@ namespace Nomenclature_Namer
             {
                 Console.WriteLine(name);
             }
-            showpathdebug("end");
+            //showpathdebug("end");
         }
         private void showpathdebug(string s)
         {
@@ -262,7 +268,7 @@ namespace Nomenclature_Namer
                     allPathsAndBranches.RemoveAt(i);
                 }
             }
-        } //PROBLEM. narrowing down doesnt account for the multiple carbon indexes
+        } //PROBLEM. narrowing down doesnt account for the multiple carbon indexes?? still??
         private void NarrowDownPathsBySuffix()
         {
             List<int> suffixCarbonSums = new List<int>();
@@ -410,6 +416,16 @@ namespace Nomenclature_Namer
         }
         private string NameSegment(Dictionary<string, List<int>> namesAndCarbonNumbers)
         {
+            //debug
+            //foreach (KeyValuePair<string, List<int>> groupData in namesAndCarbonNumbers)
+            //{
+            //    Console.WriteLine(groupData.Key);
+            //    foreach(int n in groupData.Value)
+            //    {
+            //        Console.WriteLine(n);
+            //    }
+            //}
+            //Console.ReadLine();
             List<(string numbers, string name)> names = new List<(string, string)>();
             foreach (KeyValuePair<string, List<int>> groupData in namesAndCarbonNumbers)
             {
@@ -420,7 +436,11 @@ namespace Nomenclature_Namer
                 string numbers = "";
                 for (int i = 0; i < carbonNumbers.Count; i++)
                 {
-                    numbers += "," + carbonNumbers[i];
+                    numbers += carbonNumbers[i];
+                    if (i == carbonNumbers.Count)
+                    {
+                        numbers += ",";
+                    }
                 }
                 numbers += numericalPrefix;
                 names.Add((numbers, name));

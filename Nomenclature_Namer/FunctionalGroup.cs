@@ -3,7 +3,6 @@ namespace Nomenclature_Namer
 {
     public class FunctionalGroup
     {
-        private int alphebatism;
         protected string elementSymbol;
         public string ElementSymbol { get { return elementSymbol; } }
         protected char bondSymbol;
@@ -12,7 +11,6 @@ namespace Nomenclature_Namer
         public int MainIndex { get { return mainIndex; } }
         public FunctionalGroup(string elementSymbol, int bondOrder, int mainIndex)
         {
-            alphebatism = elementSymbol[0] - 96;
             this.elementSymbol = elementSymbol;
             this.mainIndex = mainIndex;
             switch (bondOrder)
@@ -64,11 +62,20 @@ namespace Nomenclature_Namer
             return mainIndex == index || otherCarbonIndex == index;
         }
     }
+    public class MergedGroup : FunctionalGroup
+    {
+        string formula;
+        public override string GroupFormula { get { return formula; } }
+        public MergedGroup(string formula, int carbonIndex) : base("", 1, carbonIndex)
+        {
+            this.formula = formula;
+        }
+    }
     public class CarbonOtherCarbonGroup : FunctionalGroup
     {
         int[] carbonIndexes;
         public override string GroupFormula { get { return "C" + bondSymbol + elementSymbol + bondSymbol + "C"; } }
-        public CarbonOtherCarbonGroup(string centralElementSymbol, int centralAtomIndex, int[] carbonIndexes): base(centralElementSymbol, 1, centralAtomIndex)
+        public CarbonOtherCarbonGroup(string centralElementSymbol, int centralAtomIndex, int[] carbonIndexes) : base(centralElementSymbol, 1, centralAtomIndex)
         {
             this.carbonIndexes = carbonIndexes;
         }

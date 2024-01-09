@@ -19,7 +19,7 @@ namespace Nomenclature_Namer
         {
             periodicTable = LoadPeriodicTable(periodicTableFileName);
             Construct();
-            DisplayGroupsDebug();
+            //DisplayGroupsDebug();
             //DisplayPeriodicTableDebug();
             //SpellOutGraphDebug(true);
         }
@@ -79,7 +79,11 @@ namespace Nomenclature_Namer
                 {
                     int bondOrder = 1;
                     Console.WriteLine($"What {(rootAtom.MaxBonds > rootAtom.BondsFree ? "else " : "")}is bonded to {rootAtom.Name} number {PreviousSimilarAtoms(rootAtomIndex)}?\n{chain[rootAtomIndex].BondsFree} bonds left.");
-                    string symbolInput = Console.ReadLine().ToUpper();
+                    string symbolInput = Console.ReadLine();
+                    if(symbolInput.Length > 0)
+                    {
+                        symbolInput = symbolInput[0].ToString().ToUpper() + symbolInput.Substring(1);
+                    }
                     if (periodicTable.ContainsKey(symbolInput))
                     {
                         chain.Add(new Element(symbolInput, periodicTable[symbolInput].name, periodicTable[symbolInput].valency));
@@ -131,10 +135,6 @@ namespace Nomenclature_Namer
         public int AlkylCounter(int index)
         {
             return chain[index].BondIndexes.Distinct().Count(x => chain[x].Name == "Carbon"); //hashset as double bonds were counted twice
-        }
-        private int AlkylCounter(int index, HashSet<int> exclude)
-        {
-            return chain[index].BondIndexes.Distinct().Count(x => chain[x].Name == "Carbon" && !exclude.Contains(x));
         }
         public int[] AdjacentAtoms(int index, string ignoreSymbol) // adjacent atoms, H is to be ignored as it is dead end
         {
@@ -299,6 +299,10 @@ namespace Nomenclature_Namer
                 }
             }
         }
+        private int AlkylCounter(int index, HashSet<int> exclude)
+        {
+            return chain[index].BondIndexes.Distinct().Count(x => chain[x].Name == "Carbon" && !exclude.Contains(x));
+        }
         public void NarrowDownCarbonsNumbers(List<int> endsIndexes) //overclimplicated to put in this layer/class ??
         {
             foreach(Element c in chain)
@@ -427,7 +431,57 @@ namespace Nomenclature_Namer
                 }
             }
         }
-
+        public void MergeFunctionalGroups(Dictionary<HashSet<string>, string> toMerge)
+        {
+            //readonly Dictionary<HashSet<string>, string> toMerge = toMergen.AsReadOnly(); ///very wierd func problems
+            for (int i = 0; i < chain.Count; i++)
+            {
+                //Console.WriteLine("tomerge count = " + toMerge.Count);
+                //Console.WriteLine("tomerge first hashset count = " + toMerge.Keys.First().Count);
+                //Console.WriteLine("tomerge first value = " + toMerge.Values.First());
+                //foreach (string s in toMerge.Keys.ToArray()[0])
+                //{
+                //    Console.WriteLine(s);
+                //}
+                HashSet<string> formulae = groups.Where(x => x.Involves(i)).Select(x => x.GroupFormula).ToHashSet();
+                //Console.WriteLine("formulae detected on carbon index " + i);
+                //foreach(string s in formulae)
+                //{
+                //    Console.WriteLine(s);
+                //}
+                //foreach(HashSet<string> collect in toMerge.Keys)
+                //{
+                //    Console.WriteLine(collect.Count);
+                //}
+                foreach (HashSet<string> collect in toMerge.Keys)
+                {
+                    if (collect.IsSubsetOf(formulae))
+                    {
+                        //Console.WriteLine("subset detected ---");
+                        //foreach(string b in collect)
+                        //{
+                        //    Console.WriteLine(b);
+                        //}
+                        
+                        formulae = new HashSet<string>(collect);
+                        //foreach(string s in formulae)
+                        //{
+                        //    Console.WriteLine("formulae - " + s);
+                        //}
+                        //Console.ReadLine();
+                        groups.Add(new MergedGroup(toMerge[collect], i));
+                        for (int j = groups.Count -1; j >= 0; j--)
+                        {
+                            if (groups[j].Involves(i) && formulae.Contains(groups[j].GroupFormula))
+                            {
+                                formulae.Remove(groups[j].GroupFormula);
+                                groups.RemoveAt(j);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         public static void SavePeriodicTable(string fileName, Dictionary<string, (string name, int valency)> newPeriodicTable)
         { 
             fileName += ".PeriodicTable";
@@ -476,7 +530,7 @@ namespace Nomenclature_Namer
                 }
             }
         }
-        private void DisplayGroupsDebug() //debug
+        public void DisplayGroupsDebug() //debug
         {
             foreach (FunctionalGroup fg in groups)
             {
