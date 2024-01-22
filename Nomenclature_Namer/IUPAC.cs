@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 
 namespace Nomenclature_Namer
 {
@@ -11,14 +12,15 @@ namespace Nomenclature_Namer
 
         private readonly List<FunctionalGroup> groups;
         private readonly ElementGraph atoms;
-        public struct namingSpec //make elements readonly and add loadspec to here after
+        public struct namingSpec //make readonly and add loadspec to here after??
         {
-            public Dictionary<string, (string prefix, string suffix, int priority)> prefixOrSuffix; //pref, suff, priority
-            public Dictionary<string, ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)> endDependentPrefixOrSuffix; //pref, suff, priority (MIDDLE), same for END
+            public string[] alkylNames;
+            public string[] numericalPrefixes; //INCLUDE ZERO, AS NEEDED FOR DEFAULTS. SO, "", "", "di', "tri"
+            public Dictionary<HashSet<string>, string> merging; //c-o and c=o to cooh
             public Dictionary<string, string> prefixOnly;
             public Dictionary<string, (string name, int priority)> middle;
-            public string[] numericalPrefixes; //INCLUDE ZERO, AS NEEDED FOR DEFAULTS. SO, "", "", "di', "tri"
-            public string[] alkylNames;
+            public Dictionary<string, (string prefix, string suffix, int priority)> prefixOrSuffix; //pref, suff, priority
+            public Dictionary<string, ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)> endDependentPrefixOrSuffix; //pref, suff, priority (MIDDLE), same for END
             /*public Dictionary<string, string> Prefix
             {
                 get
@@ -53,7 +55,7 @@ namespace Nomenclature_Namer
                 }
             }*/
         }
-        private namingSpec spec;
+        private readonly namingSpec spec;
         public string[] names;
         private List<(List<int> path, List<List<int>> branches)> allPathsAndBranches;
         private string suffixFormula;
@@ -62,42 +64,21 @@ namespace Nomenclature_Namer
         private bool suffixIsMiddle;
         //private string highestPrioritySuffixFormula;
 
-        public IUPAC(ElementGraph atoms)
+        public IUPAC(string specFileName, ElementGraph atoms)
         {
+            spec = LoadSpecification(specFileName);
             this.atoms = atoms;
-            Dictionary<HashSet<string>, string> b = new Dictionary<HashSet<string>, string>();
-            b.Add(new HashSet<string> { "C-O", "C=O" }, "COOH");
-            atoms.MergeFunctionalGroups(b);
+            atoms.MergeFunctionalGroups(spec.merging);
             groups = atoms.Groups;
             //atoms.DisplayGroupsDebug();
-            Console.ReadLine();
-            spec.prefixOrSuffix = new Dictionary<string, (string, string, int)>();
-            spec.prefixOrSuffix.Add("C≡N", ("cyano", "nitrile", 9));
-            spec.prefixOrSuffix.Add("C-O", ("hydroxy", "ol", 2));
-            spec.prefixOrSuffix.Add("COOH", ("carbonic", "oic acid", 10));
-            spec.prefixOrSuffix.Add("", ("", "e", 0));
-            spec.prefixOnly = new Dictionary<string, string>();
-            spec.prefixOnly.Add("C-F", "fluoro");
-            spec.prefixOnly.Add("C-Cl", "chloro");
-            spec.prefixOnly.Add("C-Br", "bromo");
-            spec.prefixOnly.Add("C-I", "iodo");
-            spec.endDependentPrefixOrSuffix = new Dictionary<string, ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)>();
-            spec.endDependentPrefixOrSuffix.Add("C=O", (("oxo", "one", 5), ("formyl", "al", 6)));
-            spec.middle = new Dictionary<string, (string, int)>();
-            spec.middle.Add("C=C", ("en", 2));
-            spec.middle.Add("C≡C", ("yn", 1));
-            spec.middle.Add("", ("an", 0));
-            spec.numericalPrefixes = new string[] { "", "", "di", "tri", "tetra" };
-            spec.alkylNames = new string[] { "", "meth", "eth", "prop", "but", "pent", "hex", "hept", "octo", "non", "dec" };
-            //DisplaySpecDebug();
-            CheckGroups(this.groups);
+            CheckGroups(groups);
 
             //naming
             List<List<int>> longestPaths = atoms.FindEveryLongestPath();
             //Console.WriteLine($" at start {allPathsAndBranches.Count} paths");
             allPathsAndBranches = NarrowDownPathsByBranches(longestPaths);
             suffixFormula = "";
-            suffixRoot = spec.prefixOrSuffix[""].suffix;
+            suffixRoot = "";
             FindHighestPrioritySuffix();
             //Console.WriteLine("suffix formula is " + suffixFormula);
             //Console.WriteLine("suffix root is " + suffixRoot);
@@ -109,7 +90,6 @@ namespace Nomenclature_Namer
             //{
             //    Console.WriteLine("it is middle");
             //}
-            
             //showpathdebug("start");
             if (longestPaths.Count == 0)
             {
@@ -142,18 +122,6 @@ namespace Nomenclature_Namer
             }
             //showpathdebug("end");
         }
-        private void showpathdebug(string s)
-        {
-            Console.WriteLine("at " + s);
-            foreach (var i in allPathsAndBranches)
-            {
-                foreach (int j in i.path)
-                {
-                    Console.WriteLine(j);
-                }
-                Console.WriteLine("-----");
-            }
-        }
         private string[] ConstructName()
         {
             string[] names = new string[allPathsAndBranches.Count];
@@ -169,11 +137,36 @@ namespace Nomenclature_Namer
                 string prefixName = NameSegment(prefixCarbons);
                 string middleName = NameSegment(middleCarbons);
                 string suffixName = NameSegment(suffixCarbons);
-                names[i] = prefixName + longestAlkylName + middleName + suffixName;
+                //Console.WriteLine("before = " + prefixName + longestAlkylName + middleName + suffixName);
+                names[i] = FormatName(prefixName + longestAlkylName + middleName + suffixName);
             }
             return names;
         }
-        /*private void NarrowDownPathsByGroups() //brocken
+        private string FormatName(string name)
+        {
+            Regex vowels = new Regex(@"\|(.)(?=[^a-z]*[aeiouy])"); //optional vowel followed by vowel is removed
+            Regex startDashes = new Regex(@"(\w)(\d)");
+            Regex endDashes = new Regex(@"(\d)(\w)");
+            name = vowels.Replace(name, "");
+            name = name.Replace("|", "");
+            name = startDashes.Replace(name, (m) => m.Groups[1].Value + "-" + m.Groups[2].Value);
+            name = endDashes.Replace(name, (m) => m.Groups[1].Value + "-" + m.Groups[2].Value);
+            return name;
+        }
+        /*
+        private void showpathdebug(string s)
+        {
+            Console.WriteLine("at " + s);
+            foreach (var i in allPathsAndBranches)
+            {
+                foreach (int j in i.path)
+                {
+                    Console.WriteLine(j);
+                }
+                Console.WriteLine("-----");
+            }
+        }
+        private void NarrowDownPathsByGroups() //brocken
         {
             int groupsCount = groups.Count;
             int[] counts = new int[allPathsAndBranches.Count];
@@ -325,8 +318,11 @@ namespace Nomenclature_Namer
                         name = spec.prefixOrSuffix[group.GroupFormula].prefix;
                     }
                 }
-                else if (spec.endDependentPrefixOrSuffix.ContainsKey(group.GroupFormula))
+                if (spec.endDependentPrefixOrSuffix.ContainsKey(group.GroupFormula)) //testing, was 'else if' so didnt work as prefix ketones and aldehydes did not name ie oxo!!!
                 {
+                    //Console.WriteLine("is an end - " + atoms.IsAnEnd(group.MainIndex));
+                    //Console.WriteLine("match and end match " + (suffixIsEnd && group.GroupFormula == suffixFormula));
+                    //Console.WriteLine("match and middle match " + (suffixIsMiddle && group.GroupFormula == suffixFormula));
                     if (atoms.IsAnEnd(group.MainIndex) && !(suffixIsEnd && group.GroupFormula == suffixFormula)) //group is on the end and isnt the same as the suffix one
                     {
                         name = spec.endDependentPrefixOrSuffix[group.GroupFormula].end.prefix;
@@ -437,7 +433,7 @@ namespace Nomenclature_Namer
                 for (int i = 0; i < carbonNumbers.Count; i++)
                 {
                     numbers += carbonNumbers[i];
-                    if (i == carbonNumbers.Count)
+                    if (i != carbonNumbers.Count -1)
                     {
                         numbers += ",";
                     }
@@ -470,88 +466,260 @@ namespace Nomenclature_Namer
             }
             return true;
         }
-        private void DisplaySpecDebug()
+        public string[] alkylNames;
+        public string[] numericalPrefixes; //INCLUDE ZERO, AS NEEDED FOR DEFAULTS. SO, "", "", "di', "tri"
+        public Dictionary<HashSet<string>, string> merging; //c-o and c=o to cooh
+        public Dictionary<string, string> prefixOnly;
+        public Dictionary<string, (string name, int priority)> middle;
+        public Dictionary<string, (string prefix, string suffix, int priority)> prefixOrSuffix; //pref, suff, priority
+        public Dictionary<string, ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)> endDependentPrefixOrSuffix; //pref, suff, priority (MIDDLE), same for END
+        public static void DisplaySpecDebug(string fileName)
         {
-            Console.WriteLine("suffix");
-            foreach (string s in spec.prefixOrSuffix.Keys)
+            namingSpec spec = LoadSpecification(fileName);
+            Console.WriteLine("alkylNames");
+            ConsoleColor c = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.DarkRed;
+            Console.WriteLine("----------");
+            Console.ForegroundColor = c;
+            foreach (string s in spec.alkylNames)
             {
-                Console.WriteLine(s);
+                Console.Write("'"+s+"', ");
             }
-            Console.WriteLine("-----");
-            Console.WriteLine("prefix");
-            //foreach (string s in spec.prefixOnly.Keys)
-            //{
-            //    Console.WriteLine(s);
-            //}
-            Console.WriteLine("-----");
-            Console.WriteLine("middle");
-            foreach (string s in spec.middle.Keys)
+            Console.WriteLine();
+            Title("numericalPrefixes");
+            foreach (string s in spec.numericalPrefixes)
             {
+                Console.Write("'" + s + "', ");
+            }
+            Console.WriteLine();
+            Title("merging");
+            foreach (var v in spec.merging)
+            {
+                foreach (string s in v.Key)
+                {
+                    Console.Write("'" + s + "', ");
+                }
+                Console.Write(" : '" + v.Value + "'");
+            }
+            Console.WriteLine();
+            Title("prefixOnly");
+            foreach (var v in spec.prefixOnly)
+            {
+                Console.WriteLine("'" + v.Key + "' : '" + v.Value + "'");
+            }
+            Title("middle");
+            foreach (var v in spec.middle)
+            {
+                Console.WriteLine("'" + v.Key + "' : '" + v.Value.name + "', '" + v.Value.priority + "'");
+            }
+            Title("prefixOrSuffix");
+            foreach (var v in spec.prefixOrSuffix)
+            {
+                Console.WriteLine("'" + v.Key + "' : '" + v.Value.prefix + "', '" + v.Value.suffix + "', '" + v.Value.priority + "'");
+            }
+            Title("endDependentPrefixOrSuffix");
+            foreach (var v in spec.endDependentPrefixOrSuffix)
+            {
+                Console.WriteLine("'" + v.Key + "' (MIDDLE) : '" + v.Value.middle.prefix + "', '" + v.Value.middle.suffix + "', '" + v.Value.middle.priority + "'");
+                Console.WriteLine("'" + v.Key + "' (END) : '" + v.Value.end.prefix + "', '" + v.Value.end.suffix + "', '" + v.Value.end.priority + "'");
+            }
+
+            void Title(string s)
+            {
+                ConsoleColor c = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.DarkRed;
+                Console.WriteLine("----------");
+                Console.ForegroundColor = c;
                 Console.WriteLine(s);
+                Console.ForegroundColor = ConsoleColor.DarkRed;
+                Console.WriteLine("----------");
+                Console.ForegroundColor = c;
             }
         }
-        //public static void SaveSpecification(string fileName,namingSpec spec)
-        //{
-        //    fileName += ".ExamSpec";
-        //    short prefixCount = Convert.ToInt16(prioritySuffix.Length); //less than 32,000
-        //    short prefixLength = Convert.ToInt16(priorityPrefix.Length);
-        //    using (BinaryWriter writefile = new BinaryWriter(File.Open(fileName, FileMode.Create)))
-        //    {
-        //        writefile.Write(suffixLength);
-        //        writefile.Write(prefixLength);
-        //        for (int i = 0; i < suffixLength; i++)
-        //        {
-        //            writefile.Write(prioritySuffix[i]);
-        //        }
-        //        for (int i = 0; i < prefixLength; i++)
-        //        {
-        //            writefile.Write(priorityPrefix[i]);
-        //        }
-        //        writefile.Close();
-        //    }
-        //}
-        //public static void SaveSpecification(string fileName, string[] prioritySuffix, string[] priorityPrefix)
-        //{
-        //    fileName += ".ExamSpec";
-        //    short suffixLength = Convert.ToInt16(prioritySuffix.Length);
-        //    short prefixLength = Convert.ToInt16(priorityPrefix.Length);
-        //    using (BinaryWriter writefile = new BinaryWriter(File.Open(fileName, FileMode.Create)))
-        //    {
-        //        writefile.Write(suffixLength);
-        //        writefile.Write(prefixLength);
-        //        for(int i=0; i<suffixLength; i++)
-        //        {
-        //            writefile.Write(prioritySuffix[i]);
-        //        }
-        //        for (int i = 0; i < prefixLength; i++)
-        //        {
-        //            writefile.Write(priorityPrefix[i]);
-        //        }
-        //        writefile.Close();
-        //    }
-        //}
-        private (string[], string[]) LoadSpecification(string fileName)
+        public static void SaveSpecification(string fileName, namingSpec spec)
         {
             fileName += ".ExamSpec";
-            string[] suffix;
-            string[] prefix;
-            using (BinaryReader writefile = new BinaryReader(File.Open(fileName, FileMode.Open)))
+            using (BinaryWriter writeFile = new BinaryWriter(File.Open(fileName, FileMode.Create)))
             {
-                short suffixLength = writefile.ReadInt16();
-                short prefixLength = writefile.ReadInt16();
-                suffix = new string[suffixLength];
-                prefix = new string[prefixLength];
-                for (int i = 0; i < suffixLength; i++)
+                writeFile.Write(((short)spec.alkylNames.Length)); //less than 32,000
+                foreach(string name in spec.alkylNames)
                 {
-                    suffix[i] = writefile.ReadString();
+                    writeFile.Write(name);
                 }
-                for (int i = 0; i < prefixLength; i++)
+                writeFile.Write((short)spec.numericalPrefixes.Length);
+                foreach(string pref in spec.numericalPrefixes)
                 {
-                    prefix[i] = writefile.ReadString();
+                    writeFile.Write(pref);
                 }
-                writefile.Close();
+                writeFile.Write(((short)spec.merging.Count));
+                foreach(KeyValuePair<HashSet<string>, string> v in spec.merging)
+                {
+                    writeFile.Write(((short)v.Key.Count));
+                    foreach(string s in v.Key)
+                    {
+                        writeFile.Write(s);
+                    }
+                    writeFile.Write(v.Value);
+                }
+                writeFile.Write(((short)spec.prefixOnly.Count));
+                foreach(KeyValuePair<string, string> v in spec.prefixOnly)
+                {
+                    writeFile.Write(v.Key);
+                    writeFile.Write(v.Value);
+                }
+                List<(string key, string name)> sortedMiddle = new List<(string key, string name)>();
+                sortedMiddle = spec.middle.Select(kv => (kv.Key, kv.Value.name)).ToList();
+                sortedMiddle = sortedMiddle.OrderBy(x => spec.middle[x.key].priority).ToList();
+                writeFile.Write(((short)sortedMiddle.Count));
+                for (int i = sortedMiddle.Count - 1; i >= 0; i--)
+                {
+                    writeFile.Write(sortedMiddle[i].key);
+                    writeFile.Write(sortedMiddle[i].name);
+                }
+                List<(string key, bool middleOnly, bool endOnly, string prefix, string suffix)> sortedSuffixes = spec.prefixOrSuffix.Select(kv => (kv.Key, false, false, kv.Value.prefix, kv.Value.suffix)).ToList();
+                sortedSuffixes.AddRange(spec.endDependentPrefixOrSuffix.Select(kv => (kv.Key, true, false, kv.Value.middle.prefix, kv.Value.middle.suffix)).ToList());
+                sortedSuffixes.AddRange(spec.endDependentPrefixOrSuffix.Select(kv => (kv.Key, false, true, kv.Value.end.prefix, kv.Value.end.suffix)).ToList());
+                sortedSuffixes = sortedSuffixes.OrderBy(x => getPriorityForSuffixSort(x)).ToList(); //not sorting
+                //getPriorityForSuffixSort(sortedSuffixes.First());
+                writeFile.Write(((short)sortedSuffixes.Count));
+                for (int i = sortedSuffixes.Count - 1; i >= 0; i--)
+                {
+                    writeFile.Write(sortedSuffixes[i].key);
+                    writeFile.Write(sortedSuffixes[i].middleOnly);
+                    writeFile.Write(sortedSuffixes[i].endOnly);
+                    writeFile.Write(sortedSuffixes[i].prefix);
+                    writeFile.Write(sortedSuffixes[i].suffix);
+                }
+                //foreach (KeyValuePair<string, (string prefix, string suffix, int priority)> v in spec.prefixOrSuffix)
+                //{
+                //    writeFile.Write(v.Key);
+                //    writeFile.Write(v.Value.prefix);
+                //    writeFile.Write(v.Value.suffix);
+                //    writeFile.Write(((short)v.Value.priority)); ///cannot do priority as index as priority is across prefix or suffix and end dependant? maybe?
+                //}
+                writeFile.Close();
+
+                int getPriorityForSuffixSort((string key, bool middleOnly, bool endOnly, string prefix, string suffix) x)
+                {
+                    if (x.middleOnly)
+                    {
+                        return spec.endDependentPrefixOrSuffix[x.key].middle.priority;
+                    }
+                    else if (x.endOnly)
+                    {
+                        return spec.endDependentPrefixOrSuffix[x.key].end.priority;
+                    }
+                    else
+                    {
+                        return spec.prefixOrSuffix[x.key].priority;
+                    }
+                }
             }
-            return (suffix, prefix);
+        }
+        private static namingSpec LoadSpecification(string fileName)
+        {
+            fileName += ".ExamSpec";
+            namingSpec spec = new namingSpec();
+            using (BinaryReader readFile = new BinaryReader(File.Open(fileName, FileMode.Open)))
+            {
+                spec.alkylNames = new string[readFile.ReadInt16()];
+                for(int i=0; i < spec.alkylNames.Length; i++)
+                {
+                    spec.alkylNames[i] = readFile.ReadString();
+                }
+                spec.numericalPrefixes = new string[readFile.ReadInt16()];
+                for (int i = 0; i < spec.numericalPrefixes.Length; i++)
+                {
+                    spec.numericalPrefixes[i] = readFile.ReadString();
+                }
+                spec.merging = new Dictionary<HashSet<string>, string>();
+                int mergingCount = readFile.ReadInt16();
+                for (int i = 0; i < mergingCount; i++)
+                {
+                    HashSet<string> toMerge = new HashSet<string>();
+                    int toMergeCount = readFile.ReadInt16();
+                    for (int j = 0; j < toMergeCount; j++)
+                    {
+                        toMerge.Add(readFile.ReadString());
+                    }
+                    spec.merging.Add(toMerge, readFile.ReadString());
+                }
+                spec.prefixOnly = new Dictionary<string, string>();
+                int prefixOnlyCount = readFile.ReadInt16();
+                for (int i = 0; i < prefixOnlyCount; i++)
+                {
+                    string key = readFile.ReadString();
+                    string name = readFile.ReadString();
+                    spec.prefixOnly.Add(key, name);
+                }
+                spec.middle = new Dictionary<string, (string name, int priority)>();
+                int middleOnlyCount = readFile.ReadInt16();
+                for (int i = middleOnlyCount-1; i >=0 ; i--)
+                {
+                    string key = readFile.ReadString();
+                    string name = readFile.ReadString();
+                    spec.middle.Add(key, (name, i+1));
+                }
+                spec.prefixOrSuffix = new Dictionary<string, (string prefix, string suffix, int priority)>();
+                spec.endDependentPrefixOrSuffix = new Dictionary<string, ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)>();
+                int suffixCount = readFile.ReadInt16();
+                for (int i = suffixCount-1; i >=0 ; i--)
+                {
+                    string key = readFile.ReadString();
+                    bool middleOnly = readFile.ReadBoolean();
+                    bool endOnly = readFile.ReadBoolean();
+                    string prefix = readFile.ReadString();
+                    string suffix = readFile.ReadString();
+                    //List<((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)> entires = new List<((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)>();
+                    if (middleOnly)
+                    {
+                        if (spec.endDependentPrefixOrSuffix.ContainsKey(key)) //hard to form back - does this work??
+                        {
+                            ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end) v = spec.endDependentPrefixOrSuffix[key];
+                            v.middle.prefix = prefix;
+                            v.middle.suffix = suffix;
+                            v.middle.priority = i+1;
+                            spec.endDependentPrefixOrSuffix[key] = v; //cannot mutate complex data type dictionary return values
+                        }
+                        else
+                        {
+                            spec.endDependentPrefixOrSuffix.Add(key, ((prefix, suffix, i+1), ("", "", -1)));
+                        }
+                    }
+                    else if (endOnly)
+                    {
+                        if (spec.endDependentPrefixOrSuffix.ContainsKey(key))
+                        {
+                            ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end) v = spec.endDependentPrefixOrSuffix[key];
+                            v.end.prefix = prefix;
+                            v.end.suffix = suffix;
+                            v.end.priority = i+1;
+                            spec.endDependentPrefixOrSuffix[key] = v;
+                        }
+                        else
+                        {
+                            spec.endDependentPrefixOrSuffix.Add(key, (("", "", -1), (prefix, suffix, i+1)));
+                        }
+                    }
+                    else
+                    {
+                        if (spec.prefixOrSuffix.ContainsKey(key))
+                        {
+                            (string prefix, string suffix, int priority) v = spec.prefixOrSuffix[key];
+                            v.prefix = prefix;
+                            v.suffix = suffix;
+                            v.priority = i+1;
+                            spec.prefixOrSuffix[key] = v;
+                        }
+                        else
+                        {
+                            spec.prefixOrSuffix.Add(key, (prefix, suffix, i+1));
+                        }
+                    }
+                }
+                readFile.Close();
+            }
+            return spec;
         }
         private void CheckGroups(List<FunctionalGroup> groups)
         {
@@ -646,6 +814,59 @@ namespace Nomenclature_Namer
                 }
             }
             return formula;
+        }
+        public static void RestoreDefaultSpecifications()
+        {
+            namingSpec fullSpec = new namingSpec();
+            fullSpec.merging = new Dictionary<HashSet<string>, string>();
+            fullSpec.prefixOnly = new Dictionary<string, string>();
+            fullSpec.middle = new Dictionary<string, (string, int)>();
+            fullSpec.prefixOrSuffix = new Dictionary<string, (string, string, int)>();
+            fullSpec.endDependentPrefixOrSuffix = new Dictionary<string, ((string, string, int), (string, string, int))>();
+            fullSpec.alkylNames = new string[] { "", "meth|a", "eth|a", "prop|a", "but|a", "pent|a", "hex|a", "hept|a", "oct|a", "non|a", "dec|a" }; // symbol to donote no double vowel here
+            fullSpec.numericalPrefixes = new string[] { "", "", "di", "tri", "tetra" };
+            fullSpec.merging.Add(new HashSet<string> { "C-O", "C=O" }, "COOH");
+            fullSpec.merging.Add(new HashSet<string> { "C-Cl", "C=O" }, "COCl");
+            fullSpec.prefixOnly.Add("C-F", "fluoro");
+            fullSpec.prefixOnly.Add("C-Cl", "chloro");
+            fullSpec.prefixOnly.Add("C-Br", "bromo");
+            fullSpec.prefixOnly.Add("C-I", "iodo");
+            fullSpec.middle.Add("C=C", ("en|e", 2));
+            fullSpec.middle.Add("C≡C", ("yn|e", 1));
+            fullSpec.middle.Add("", ("an|e", 0));
+            fullSpec.prefixOrSuffix.Add("COOH", ("carbonic", "oic acid", 6));
+            fullSpec.prefixOrSuffix.Add("COCl", ("chlorocarbonyl", "oyl chloride", 5));
+            fullSpec.prefixOrSuffix.Add("C≡N", ("cyano", "nitrile", 4));
+            fullSpec.endDependentPrefixOrSuffix.Add("C=O", (("oxo", "one", 2), ("formyl", "al", 3)));
+            fullSpec.prefixOrSuffix.Add("C-O", ("hydroxy", "ol", 1));
+            fullSpec.prefixOrSuffix.Add("", ("", "e", 0));
+            SaveSpecification("AllGroups", fullSpec);
+
+            namingSpec hcarbonSpec = new namingSpec();
+            hcarbonSpec.merging = new Dictionary<HashSet<string>, string>();
+            hcarbonSpec.prefixOnly = new Dictionary<string, string>();
+            hcarbonSpec.middle = new Dictionary<string, (string, int)>();
+            hcarbonSpec.prefixOrSuffix = new Dictionary<string, (string, string, int)>();
+            hcarbonSpec.endDependentPrefixOrSuffix = new Dictionary<string, ((string, string, int), (string, string, int))>();
+            hcarbonSpec.alkylNames = new string[] { "", "meth|a", "eth|a", "prop|a", "but|a", "pent|a", "hex|a", "hept|a", "oct|a", "non|a", "dec|a" };
+            hcarbonSpec.numericalPrefixes = new string[] { "", "", "di", "tri", "tetra" };
+            hcarbonSpec.middle.Add("C=C", ("en|e", 2));
+            hcarbonSpec.middle.Add("C≡C", ("yn|e", 1));
+            hcarbonSpec.middle.Add("", ("an|e", 0));
+            hcarbonSpec.prefixOrSuffix.Add("", ("", "e", 0));
+            SaveSpecification("Hydrocarbons", hcarbonSpec);
+
+            namingSpec alkaneSpec = new namingSpec();
+            alkaneSpec.merging = new Dictionary<HashSet<string>, string>();
+            alkaneSpec.prefixOnly = new Dictionary<string, string>();
+            alkaneSpec.middle = new Dictionary<string, (string, int)>();
+            alkaneSpec.prefixOrSuffix = new Dictionary<string, (string, string, int)>();
+            alkaneSpec.endDependentPrefixOrSuffix = new Dictionary<string, ((string, string, int), (string, string, int))>();
+            alkaneSpec.alkylNames = new string[] { "", "meth|a", "eth|a", "prop|a", "but|a", "pent|a", "hex|a", "hept|a", "oct|a", "non|a", "dec|a" };
+            alkaneSpec.numericalPrefixes = new string[] { "", "", "di", "tri", "tetra" };
+            alkaneSpec.middle.Add("", ("an", 0));
+            alkaneSpec.prefixOrSuffix.Add("", ("", "e", 0));
+            SaveSpecification("Alkanes", alkaneSpec);
         }
     }
 }

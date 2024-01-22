@@ -43,7 +43,7 @@ namespace Nomenclature_Namer
             }*/
 
             groups = FindGroups();
-            removeDuplicateGroups();
+            RemoveDuplicateGroups();
 
             Console.WriteLine("Done");
         }
@@ -409,9 +409,8 @@ namespace Nomenclature_Namer
             }
             return newGroups;
         }
-        private void removeDuplicateGroups()
+        private void RemoveDuplicateGroups()
         {
-            List<int> rm = new List<int>();
             for (int i = groups.Count - 1; i >= 0; i--)
             {
                 if (groups[i] is CarbonCarbonGroup)
@@ -431,7 +430,7 @@ namespace Nomenclature_Namer
                 }
             }
         }
-        public void MergeFunctionalGroups(Dictionary<HashSet<string>, string> toMerge)
+        public void MergeFunctionalGroups(Dictionary<HashSet<string>, string> toMerge) //not working, removing all c=o
         {
             //readonly Dictionary<HashSet<string>, string> toMerge = toMergen.AsReadOnly(); ///very wierd func problems
             for (int i = 0; i < chain.Count; i++)
@@ -457,18 +456,7 @@ namespace Nomenclature_Namer
                 {
                     if (collect.IsSubsetOf(formulae))
                     {
-                        //Console.WriteLine("subset detected ---");
-                        //foreach(string b in collect)
-                        //{
-                        //    Console.WriteLine(b);
-                        //}
-                        
                         formulae = new HashSet<string>(collect);
-                        //foreach(string s in formulae)
-                        //{
-                        //    Console.WriteLine("formulae - " + s);
-                        //}
-                        //Console.ReadLine();
                         groups.Add(new MergedGroup(toMerge[collect], i));
                         for (int j = groups.Count -1; j >= 0; j--)
                         {
@@ -483,9 +471,11 @@ namespace Nomenclature_Namer
             }
         }
         public static void SavePeriodicTable(string fileName, Dictionary<string, (string name, int valency)> newPeriodicTable)
-        { 
-            fileName += ".PeriodicTable";
-            
+        {
+            if (!fileName.EndsWith(".PeriodicTable"))
+            {
+                fileName += ".PeriodicTable";
+            }
             using (BinaryWriter writefile = new BinaryWriter(File.Open(fileName, FileMode.Create)))
             {
                 writefile.Write(Convert.ToInt16(newPeriodicTable.Count));
@@ -497,7 +487,11 @@ namespace Nomenclature_Namer
                 }
                 writefile.Close();
             }
-            
+        }
+        public static void RestoreDefaultPeriodicTable()
+        {
+            Dictionary<string, (string name, int valency)> newPeriodicTable = new Dictionary<string, (string name, int valency)> { { "C", ("Carbon", 4) }, { "H", ("Hydrogen", 1) }, { "O", ("Oxygen", 2) }, { "N", ("Nitrogen", 3) }, { "F", ("Fluorine", 1) }, { "Cl", ("Chlorine", 1) }, { "Br", ("Bromine", 1) }, { "I", ("Iodine", 1) } };
+            SavePeriodicTable("Default", newPeriodicTable);
         }
         private Dictionary<string, (string name, int valency)> LoadPeriodicTable(string fileName)
         {
