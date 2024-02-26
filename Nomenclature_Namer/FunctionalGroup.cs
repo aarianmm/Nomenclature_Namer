@@ -37,10 +37,6 @@ namespace Nomenclature_Namer
             return mainIndex == index;
         }
     }
-    //public class Carboxylic : funcionalGroup
-    //{
-    //    public Carboxylic(int carbonIndex): base("OO")
-    //}
     public class CarbonCarbonGroup : FunctionalGroup
     {
         int otherCarbonIndex;
@@ -49,10 +45,6 @@ namespace Nomenclature_Namer
         {
             this.otherCarbonIndex = otherCarbonIndex;
         }
-        //public bool IsSame(int carbonIndexOne, int carbonIndexTwo)
-        //{
-        //    return (carbonIndexOne == mainIndex && carbonIndexTwo == otherCarbonIndex) || (carbonIndexOne == otherCarbonIndex && carbonIndexTwo == mainIndex);
-        //}
         public bool IsSame(CarbonCarbonGroup otherGroup)
         {
             return (otherGroup.mainIndex == mainIndex && otherGroup.otherCarbonIndex == otherCarbonIndex) || (otherGroup.mainIndex == otherCarbonIndex && otherGroup.otherCarbonIndex == mainIndex);
@@ -71,7 +63,7 @@ namespace Nomenclature_Namer
             this.formula = formula;
         }
     }
-    public class CarbonOtherCarbonGroup : FunctionalGroup
+    public class CarbonOtherCarbonGroup : FunctionalGroup //future proofing
     {
         int[] carbonIndexes;
         public override string GroupFormula { get { return "C" + bondSymbol + elementSymbol + bondSymbol + "C"; } }
