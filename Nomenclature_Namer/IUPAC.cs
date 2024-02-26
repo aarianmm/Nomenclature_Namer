@@ -51,6 +51,7 @@ namespace Nomenclature_Namer
             }
             if (longestPaths.Count != 1)
             {
+                NarrowDownPathsByLength();
                 if (longestPaths.Count != 1)
                 {
                     NarrowDownPathsBySuffix();
@@ -60,10 +61,6 @@ namespace Nomenclature_Namer
                         if (longestPaths.Count != 1)
                         {
                             NarrowDownPathsByPrefixes();
-                        }
-                        if (longestPaths.Count != 1)
-                        {
-                            NarrowDownPathsByLength();
                         }
                     }
                 }
@@ -96,9 +93,10 @@ namespace Nomenclature_Namer
         }
         private string FormatName(string name)
         {
+            name = name.ToLower();
             Regex vowels = new Regex(@"\|(.)(?=[^a-z]*[aeiouy])"); //optional vowel followed by vowel is removed
-            Regex startDashes = new Regex(@"(\w)(\d)");
-            Regex endDashes = new Regex(@"(\d)(\w)");
+            Regex startDashes = new Regex(@"([a-z])(\d)");
+            Regex endDashes = new Regex(@"(\d)([a-z])");
             name = vowels.Replace(name, "");
             name = name.Replace("|", "");
             name = startDashes.Replace(name, (m) => m.Groups[1].Value + "-" + m.Groups[2].Value);
