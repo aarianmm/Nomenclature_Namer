@@ -80,7 +80,7 @@ namespace Nomenclature_Namer
                     int bondOrder = 1;
                     Console.WriteLine($"What {(rootAtom.MaxBonds > rootAtom.BondsFree ? "else " : "")}is bonded to {rootAtom.Name} number {PreviousSimilarAtoms(rootAtomIndex)}?\n{atoms[rootAtomIndex].BondsFree} bonds left.");
                     string symbolInput = Console.ReadLine();
-                    if(symbolInput.Length > 0)
+                    if (symbolInput.Length > 0)
                     {
                         symbolInput = symbolInput[0].ToString().ToUpper() + symbolInput.Substring(1);
                     }
@@ -423,7 +423,7 @@ namespace Nomenclature_Namer
                     {
                         formulae = new HashSet<string>(collect);
                         groups.Add(new MergedGroup(toMerge[collect], i));
-                        for (int j = groups.Count -1; j >= 0; j--) //negative iteration as mutating data structure
+                        for (int j = groups.Count - 1; j >= 0; j--) //negative iteration as mutating data structure
                         {
                             if (groups[j].Involves(i) && formulae.Contains(groups[j].GroupFormula))
                             {
@@ -444,7 +444,7 @@ namespace Nomenclature_Namer
             using (BinaryWriter writefile = new BinaryWriter(File.Open(fileName, FileMode.Create)))
             {
                 writefile.Write(Convert.ToInt16(newPeriodicTable.Count));
-                foreach(KeyValuePair<string, (string name, int valency)> element in newPeriodicTable)
+                foreach (KeyValuePair<string, (string name, int valency)> element in newPeriodicTable)
                 {
                     writefile.Write(element.Key); //must contain a "Carbon" "C" and "Hydrogen" "H" 
                     writefile.Write(element.Value.name);
@@ -477,7 +477,7 @@ namespace Nomenclature_Namer
             using (BinaryReader readfile = new BinaryReader(File.Open(fileName, FileMode.Open)))
             {
                 int elementCount = readfile.ReadInt16();
-                for(int i=0; i<elementCount; i++)
+                for (int i = 0; i < elementCount; i++)
                 {
                     string symbol = readfile.ReadString();
                     string name = readfile.ReadString();
@@ -508,13 +508,10 @@ namespace Nomenclature_Namer
         }
         private void DisplayPeriodicTableDebug()
         {
-            foreach(KeyValuePair<string, (string name, int valency)> kvp in periodicTable)
+            foreach (KeyValuePair<string, (string name, int valency)> kvp in periodicTable)
             {
                 Console.WriteLine(kvp.Key + " | " + kvp.Value.name + " | " + kvp.Value.valency);
             }
         }
     }
-
-
 }
-

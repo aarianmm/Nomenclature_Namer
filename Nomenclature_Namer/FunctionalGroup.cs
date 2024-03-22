@@ -76,7 +76,4 @@ namespace Nomenclature_Namer
             return carbonIndexes.Contains(index);
         }
     }
-
-
-
 }

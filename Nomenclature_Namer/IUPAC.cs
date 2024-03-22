@@ -791,4 +791,3 @@ namespace Nomenclature_Namer
         }
     }
 }
-
