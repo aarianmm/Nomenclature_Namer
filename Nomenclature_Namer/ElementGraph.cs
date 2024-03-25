@@ -1,14 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.IO;
-using System.Xml.Serialization;
-
-namespace Nomenclature_Namer
+﻿namespace Nomenclature_Namer
 {
     public class ElementGraph
     {
-        private List<Element> atoms;
+        private List<Element> atoms; //list of nodes
         public List<Element> Atoms { get { return atoms; } }
         private int[] ends;
         private List<FunctionalGroup> groups;
@@ -19,33 +13,15 @@ namespace Nomenclature_Namer
         {
             periodicTable = LoadPeriodicTable(periodicTableFileName);
             Construct();
-            //DisplayGroupsDebug();
-            //DisplayPeriodicTableDebug();
-            //SpellOutGraphDebug(true);
         }
         private void Construct()
         {
             atoms = new List<Element>();
-            Element root = new Element("C", "Carbon", 4);
+            Element root = new Element("C", "Carbon", 4); //always starts with a carbon atom to build off
             SpellOutAtoms(root);
             ends = FindEnds();
-            /*
-            foreach (Element atom in chain)
-            {
-                if (atom.Name == "Carbon")
-                {
-                    ((Carbon)atom).ProvideEndsCount(ends.Length);
-                }
-            }
-            for (int i = 0; i < ends.Length; i++) // for(int i=0; i<ends.Count;i++) // - pass i to numberCarbons so final 'if else' can check that all carbon numbers are filled if error occurs - 'else if (chain.Count(x => x.Name == "Carbon" && ((Carbon)x).CarbonNumber.Count != i+1 ) == 0) // no incomplete lists
-            { 
-                NumberCarbons(ends[i], i);
-            }*/
-
             groups = FindGroups();
             RemoveDuplicateGroups();
-
-            //Console.WriteLine("Done");
         }
         public bool IsAnEnd(int index)
         {
@@ -56,7 +32,7 @@ namespace Nomenclature_Namer
             atoms[indexOne].AddHalfBond(indexTwo, bondOrder);
             atoms[indexTwo].AddHalfBond(indexOne, bondOrder);
         }
-        private int PreviousSimilarAtoms(int atomIndex)
+        private int PreviousSimilarAtoms(int atomIndex) //how many atoms of same element have already been added
         {
             int count = 1;
             for (int i = 0; i < atomIndex; i++)
@@ -106,7 +82,7 @@ namespace Nomenclature_Namer
                         {
                             Console.WriteLine($"How many bonds do these two atoms form?\nMaximum {maximumBonds}.");
                             validBondOrder = int.TryParse(Console.ReadLine(), out bondOrder);
-                            validBondOrder = validBondOrder && bondOrder <= maximumBonds && bondOrder > 0;
+                            validBondOrder = validBondOrder && bondOrder <= maximumBonds && bondOrder > 0; //bondOrder is an integer between 1 and the maximum
                         }
                         else
                         {
@@ -126,13 +102,12 @@ namespace Nomenclature_Namer
                 rootAtom = atoms[rootAtomIndex];
 
             } while (atoms.Count(x => x.BondsFree > 0) > 0); //do while there are bonds to be made
-            //Console.WriteLine("All done.");
         }
         public int AlkylCounter(int index)
         {
             return atoms[index].BondIndexes.Distinct().Count(x => atoms[x].Name == "Carbon"); //hashset as double bonds are counted once
         }
-        public int[] AdjacentAtoms(int index, string ignoreSymbol) // adjacent atoms, H is to be ignored as it is dead end
+        public int[] AdjacentAtoms(int index, string ignoreSymbol) //adjacent atoms, H is to be ignored as it is dead end
         {
             return atoms[index].BondIndexes.Distinct().Where(x => atoms[x].Symbol != ignoreSymbol && atoms[x].Symbol != "H").ToArray();
         }
@@ -140,7 +115,7 @@ namespace Nomenclature_Namer
         {
             return AdjacentAtoms(index, "");
         }
-        public int BondOrder(int indexOne, int indexTwo) // not distinct as it returns bond order
+        public int BondOrder(int indexOne, int indexTwo) //not distinct as it returns bond order/weighting
         {
             return atoms[indexOne].BondIndexes.Count(x => x == indexTwo);
         }
@@ -152,7 +127,7 @@ namespace Nomenclature_Namer
                 if (atoms[chainIndex].Name == "Carbon" && !ends.Contains(chainIndex))
                 {
                     int alkylCount = AlkylCounter(chainIndex);
-                    if (alkylCount == 0 || alkylCount == 1) // isolated carbon ie R-O-C-O-R', or unique end
+                    if (alkylCount == 0 || alkylCount == 1) //isolated carbon ie O-C-O, or unique end
                     {
                         ends.Add(chainIndex);
                     }
@@ -188,7 +163,7 @@ namespace Nomenclature_Namer
         }
         public List<List<int>> FindEveryLongestPath()
         {
-            if (ends.Length == 1)
+            if (ends.Length == 1) //only one carbon atom
             {
                 return new List<List<int>> { new List<int> { ends[0] } };
             }
@@ -210,14 +185,13 @@ namespace Nomenclature_Namer
         {
             List<int> path = new List<int>();
             HashSet<int> visited = new HashSet<int>();
-            FindPathRecursive(start, end, ref visited, ref path);
+            FindPathRecursive(start, end, ref visited, ref path); //ref to keep track through the whole stack
             return path;
         }
-        private bool FindPathRecursive(int current, int end, ref HashSet<int> visited, ref List<int> path)
+        private bool FindPathRecursive(int current, int end, ref HashSet<int> visited, ref List<int> path) //recurisve DFS
         {
             visited.Add(current);
             path.Add(current);
-
             if (current == end)
             {
                 return true;
@@ -227,124 +201,15 @@ namespace Nomenclature_Namer
             {
                 if (!visited.Contains(bond))
                 {
-                    if (FindPathRecursive(bond, end, ref visited, ref path))
+                    if (FindPathRecursive(bond, end, ref visited, ref path)) //found end somewhere down stack
                     {
                         return true;
                     }
                 }
             }
-
-            path.Remove(current);
+            path.Remove(current); //hit deadend somewhere down stack. backtrack
             return false;
         }
-        /*private void NumberCarbons(int startIndex, int end) //? broken
-        {
-            //Console.WriteLine("NUMBERING end "+end);
-            int chainIndex = startIndex;
-            int carbonNumber = 1;
-            Queue<int> indexToReturnTo = new Queue<int>();
-            HashSet<int> visited = new HashSet<int>();
-            bool allCarbonsNumbered = false;
-            while (!allCarbonsNumbered)
-            {
-                visited.Add(chainIndex);
-                if (chain[chainIndex].Name == "Carbon")
-                {
-                    int[] bondIndexes = AdjacentAtoms(chainIndex);
-                    //foreach(int i in bondIndexes)
-                    //{
-                    //    Console.WriteLine(i);
-                    //}
-                    ((Carbon)chain[chainIndex]).CarbonNumbers[end] = carbonNumber;
-                    int unvisitedAdjacentCarbons = AlkylCounter(chainIndex, visited);
-                    //Console.WriteLine($"alyklcounter = {unvisitedAdjacentCarbons}");
-                    if (unvisitedAdjacentCarbons >= 2)
-                    {
-                        indexToReturnTo.Enqueue(chainIndex);
-                        chainIndex = NextCarbon(bondIndexes, visited);
-                        carbonNumber++;
-                    }
-                    else if (unvisitedAdjacentCarbons == 1)
-                    {
-                        chainIndex = NextCarbon(bondIndexes, visited);
-                        carbonNumber++;
-                    }
-                    else if (unvisitedAdjacentCarbons == 0 && indexToReturnTo.Count > 0)
-                    {
-                        chainIndex = indexToReturnTo.Dequeue();
-                        carbonNumber = ((Carbon)chain[chainIndex]).CarbonNumbers[end];
-                    }
-                    else
-                    {
-                        allCarbonsNumbered = true;
-                    }
-                }
-            }
-            foreach (Element e in chain)
-            {
-                if (e.Name == "Carbon")
-                {
-                    if (((Carbon)e).CarbonNumbers[end] == 0)
-                    {
-
-                        throw new Exception("Carbon isolation from end " + end);
-                    }
-                }
-            }
-        }
-        private int AlkylCounter(int index, HashSet<int> exclude)
-        {
-            return chain[index].BondIndexes.Distinct().Count(x => chain[x].Name == "Carbon" && !exclude.Contains(x));
-        }
-        public void NarrowDownCarbonsNumbers(List<int> endsIndexes) //overclimplicated to put in this layer/class ??
-        {
-            foreach(Element c in chain)
-            {
-                if(c.Name == "Carbon")
-                {
-                    ((Carbon) c).NarrowDownCarbonNumber(endsIndexes);
-                }
-            }
-            int[] newEnds = new int[endsIndexes.Count];
-            for(int i = 0; i < endsIndexes.Count; i++)
-            {
-                newEnds[i] = ends[endsIndexes[i]]; //order matters but hashset unordered
-            }
-        }
-
-        //private int NextCarbon(int[] bonds, HashSet<int> exclude)
-        //{
-        //    return bonds.First(x => x > 0 && chain[x].Name == "Carbon" && !exclude.Contains(x));
-        //}
-        private int NextCarbon(int[] bonds, HashSet<int> exclude) //recursion
-        {
-            if (bonds.Length == 0)
-            {
-                return -1; //ERROR
-            }
-            int first = bonds[0];
-            bonds = bonds.Skip(1).ToArray();
-            if (chain[first].Name == "Carbon" && !exclude.Contains(first)) //found
-            {
-                return first;
-            }
-            return NextCarbon(bonds, exclude);
-        }
-        public List<int> FindLowestEndIndexes(int importantCarbonIndex) //minimise the carbon number of this index
-        {
-            List<int> indexes = new List<int>();
-            Carbon importantCarbon = (Carbon)chain[importantCarbonIndex];
-            int lowest = importantCarbon.CarbonNumbers.Min();
-            for (int i = 0; i < ends.Count(); i++)
-            {
-                if (importantCarbon.CarbonNumbers[i] == lowest)
-                {
-                    indexes.Add(i);
-                }
-            }
-            return indexes;
-        }
-        */
         private List<FunctionalGroup> FindGroups()
         {
             List<FunctionalGroup> newGroups = new List<FunctionalGroup>();
@@ -358,17 +223,17 @@ namespace Nomenclature_Namer
                     {
                         Element bondedAtom = atoms[bondIndex];
                         int order = BondOrder(atomIndex, bondIndex);
-                        if (bondedAtom.Name == "Carbon" && order != 1) // two carbons forming double / triple bond
+                        if (bondedAtom.Name == "Carbon" && order != 1) //two carbons forming double / triple bond
                         {
-                            newGroups.Add(new CarbonCarbonGroup(order, atomIndex, bondIndex));
+                            newGroups.Add(new CarbonCarbonGroup(order, atomIndex, bondIndex)); //
                         }
-                        else if (bondedAtom.Name != "Carbon") // normal group eg C=O, C-N
+                        else if (bondedAtom.Name != "Carbon") //normal group eg C=O, C-N
                         {
                             newGroups.Add(new FunctionalGroup(bondedAtom.Symbol, order, atomIndex));
                         }
                     }
                 }
-                else if (atom.Name != "Hydrogen" && AdjacentAtoms(atomIndex, "C").Count() > 0)  // non-carbon atom bonded to some non-carbon atoms
+                else if (atom.Name != "Hydrogen" && AdjacentAtoms(atomIndex, "C").Count() > 0)  //non-carbon atom bonded to some non-carbon atoms
                 {
                     throw new Exception("Multiple non-carbon atoms are bonded together");
                 }
@@ -381,7 +246,7 @@ namespace Nomenclature_Namer
                         {
                             if (BondOrder(atomIndex, bond) > 1)
                             {
-                                throw new Exception("An atom makes non-single bonds with multiple carbons"); // cannot have CarbonOthercarbon groups where the atom makes double/triple bonds with carbon
+                                throw new Exception("An atom makes non-single bonds with multiple carbons"); //cannot have CarbonOthercarbon groups where the atom makes double/triple bonds with carbon
                             }
                             carbonIndexes.Add(bond);
                         }
@@ -391,7 +256,7 @@ namespace Nomenclature_Namer
             }
             return newGroups;
         }
-        private void RemoveDuplicateGroups() // CarbonCarbonGroups are recorded twice (once for each carbon)
+        private void RemoveDuplicateGroups() //CarbonCarbonGroups are recorded twice (once for each carbon)
         {
             for (int i = groups.Count - 1; i >= 0; i--)
             {
@@ -419,9 +284,9 @@ namespace Nomenclature_Namer
                 HashSet<string> formulae = groups.Where(x => x.Involves(i)).Select(x => x.GroupFormula).ToHashSet();
                 foreach (HashSet<string> collect in toMerge.Keys)
                 {
-                    if (collect.IsSubsetOf(formulae))
+                    if (collect.IsSubsetOf(formulae)) //enough groups to merge
                     {
-                        formulae = new HashSet<string>(collect);
+                        formulae = new HashSet<string>(collect); //new set, otherwise it is passsed by ref. and collect is mutated
                         groups.Add(new MergedGroup(toMerge[collect], i));
                         for (int j = groups.Count - 1; j >= 0; j--) //negative iteration as mutating data structure
                         {
@@ -446,7 +311,7 @@ namespace Nomenclature_Namer
                 writefile.Write(Convert.ToInt16(newPeriodicTable.Count));
                 foreach (KeyValuePair<string, (string name, int valency)> element in newPeriodicTable)
                 {
-                    writefile.Write(element.Key); //must contain a "Carbon" "C" and "Hydrogen" "H" 
+                    writefile.Write(element.Key); //must contain a "Carbon" "C" and "Hydrogen" "H"
                     writefile.Write(element.Value.name);
                     writefile.Write(Convert.ToInt16(element.Value.valency));
                 }

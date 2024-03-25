@@ -1,12 +1,11 @@
-﻿using System;
-namespace Nomenclature_Namer
+﻿namespace Nomenclature_Namer
 {
     public class FunctionalGroup
     {
         protected string elementSymbol;
         public string ElementSymbol { get { return elementSymbol; } }
-        protected char bondSymbol;
-        public virtual string GroupFormula { get { return "C" + bondSymbol + elementSymbol; } }
+        protected string bondSymbol;
+        public virtual string GroupFormula { get { return "C" + bondSymbol + elementSymbol; } } //ie C=O or C≣N
         protected int mainIndex;
         public int MainIndex { get { return mainIndex; } }
         public FunctionalGroup(string elementSymbol, int bondOrder, int mainIndex)
@@ -16,19 +15,26 @@ namespace Nomenclature_Namer
             switch (bondOrder)
             {
                 case 1:
-                    bondSymbol = '-';
+                    bondSymbol = "-";
                     break;
                 case 2:
-                    bondSymbol = '=';
+                    bondSymbol = "=";
                     break;
                 case 3:
-                    bondSymbol = '≡';
+                    bondSymbol = "≡";
                     break;
                 case 4:
-                    bondSymbol = '≣';
+                    bondSymbol = "≣"; //above 4 never used in real organic chemistry
                     break;
                 default:
-                    throw new Exception("Unknown bond order. Bonds are between order 1 and 4");
+                    if (bondOrder > 0) //no symbol for 5+ lines, so the number is simply used
+                    {
+                        bondSymbol = bondOrder.ToString();
+                    }
+                    else
+                    {
+                        throw new Exception("Invalid bond order");
+                    }                    
                     break;
             }
         }

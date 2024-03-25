@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Security.Claims;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace Nomenclature_Namer
 {
@@ -15,10 +10,10 @@ namespace Nomenclature_Namer
         {
             public string[] alkylNames;
             public string[] numericalPrefixes;
-            public Dictionary<HashSet<string>, string> merging; //C-O and C=O to COOH
+            public Dictionary<HashSet<string>, string> merging; //some groups are combined and named as one ie C-O and C=O to COOH
             public Dictionary<string, string> prefixOnly;
             public Dictionary<string, (string name, int priority)> middle;
-            public Dictionary<string, (string prefix, string suffix, int priority)> prefixOrSuffix; //pref, suff, priority
+            public Dictionary<string, (string prefix, string suffix, int priority)> prefixOrSuffix;
             public Dictionary<string, ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)> endDependentPrefixOrSuffix;
         }
         private readonly namingSpec spec;
@@ -27,7 +22,7 @@ namespace Nomenclature_Namer
         private string suffixFormula;
         private string suffixRoot;
         private bool suffixIsEnd;
-        private bool suffixIsMiddle;
+        private bool suffixIsMiddle; //if the position doesnt matter, both booleans are false 
 
         public IUPAC(string specFileName, ElementGraph atoms)
         {
@@ -35,10 +30,7 @@ namespace Nomenclature_Namer
             this.atoms = atoms;
             atoms.MergeFunctionalGroups(spec.merging);
             groups = atoms.Groups;
-            //atoms.DisplayGroupsDebug();
-            //Console.WriteLine("suffix is end" + suffixIsEnd.ToString());
-            //Console.WriteLine("suffix is middle" + suffixIsMiddle.ToString());
-            CheckGroups(groups);
+            CheckGroups(groups); //make sure the binary file conatins info for all the groups in this molecule
             //naming
             List<List<int>> longestPaths = atoms.FindEveryLongestPath();
             allPathsAndBranches = NarrowDownPathsByBranches(longestPaths);
@@ -116,7 +108,7 @@ namespace Nomenclature_Namer
                 List<List<int>> branches = allPathsAndBranches[i].branches;
                 if (!CheckBranchValidity(branches))
                 {
-                    allPathsAndBranches.RemoveAt(i); // branch invalid, so whole path invalid
+                    allPathsAndBranches.RemoveAt(i); //branch invalid, so whole path invalid
                 }
             }
             return allPathsAndBranches;
@@ -137,7 +129,7 @@ namespace Nomenclature_Namer
                 prefixesCarbonSums.Add(prefixCarbonSum);
             }
             int lowestSum = prefixesCarbonSums.Min();
-            for (int i = allPathsAndBranches.Count - 1; i >= 0; i--)  //negative iter. as mutating
+            for (int i = allPathsAndBranches.Count - 1; i >= 0; i--)  //negative iter. as mutating size of list
             {
                 if (prefixesCarbonSums[i] != lowestSum)
                 {
@@ -202,8 +194,8 @@ namespace Nomenclature_Namer
             foreach (FunctionalGroup group in groups)
             {
                 string name = "";
-                int carbonNumber = path.IndexOf(group.MainIndex) + 1;
-                if (group.GroupFormula != suffixFormula)
+                int carbonNumber = path.IndexOf(group.MainIndex) + 1; //carbon number is position in carbon chain / path
+                if (group.GroupFormula != suffixFormula) //group is not the suffix one, so belongs in the prefix
                 {
                     if (spec.prefixOnly.ContainsKey(group.GroupFormula))
                     {
@@ -214,7 +206,7 @@ namespace Nomenclature_Namer
                         name = spec.prefixOrSuffix[group.GroupFormula].prefix;
                     }
                 }
-                if (spec.endDependentPrefixOrSuffix.ContainsKey(group.GroupFormula)) //testing, was 'else if' so didnt work as prefix ketones and aldehydes did not name ie oxo!!!
+                if (spec.endDependentPrefixOrSuffix.ContainsKey(group.GroupFormula))
                 {
                     if (atoms.IsAnEnd(group.MainIndex) && !(suffixIsEnd && group.GroupFormula == suffixFormula)) //group is on the end and isnt the same as the suffix one
                     {
@@ -260,10 +252,10 @@ namespace Nomenclature_Namer
                 if (group is CarbonCarbonGroup)
                 {
                     CarbonCarbonGroup cgroup = (CarbonCarbonGroup)group;
-                    int carbonNumber = -1;
+                    int carbonNumber;
                     int carbonNumberOne = path.IndexOf(cgroup.MainIndex) + 1;
                     int carbonNumberTwo = path.IndexOf(cgroup.OtherCarbonIndex) + 1;
-                    if (carbonNumberOne < carbonNumberTwo)
+                    if (carbonNumberOne < carbonNumberTwo) //these groups contain two carbons, so have two numbers to choose from. the lowest is chosen
                     {
                         carbonNumber = carbonNumberOne;
                     }
@@ -340,7 +332,7 @@ namespace Nomenclature_Namer
                 {
                     foreach (FunctionalGroup group in groups)
                     {
-                        if (group.Involves(branch[i]) || atoms.AlkylCounter(branch[i]) > 2)
+                        if (group.Involves(branch[i]) || atoms.AlkylCounter(branch[i]) > 2) //branches cannot contain groups, or other branches coming off them
                         {
                             return false;
                         }
@@ -349,7 +341,7 @@ namespace Nomenclature_Namer
             }
             return true;
         }
-        public static void DisplaySpecDebug(string fileName)
+        public static void DisplaySpecDebug(string fileName) //no purpose besides displaying the rules extracted from the specification file
         {
             namingSpec spec = LoadSpecification(fileName);
             Console.WriteLine("alkylNames");
@@ -417,7 +409,7 @@ namespace Nomenclature_Namer
             fileName += ".ExamSpec";
             using (BinaryWriter writeFile = new BinaryWriter(File.Open(fileName, FileMode.Create)))
             {
-                writeFile.Write(((short)spec.alkylNames.Length)); //less than 32,000
+                writeFile.Write(((short)spec.alkylNames.Length)); //short is less than 32,000. that is enough
                 foreach (string name in spec.alkylNames)
                 {
                     writeFile.Write(name);
@@ -445,7 +437,7 @@ namespace Nomenclature_Namer
                 }
                 List<(string key, string name)> sortedMiddle = new List<(string key, string name)>();
                 sortedMiddle = spec.middle.Select(kv => (kv.Key, kv.Value.name)).ToList();
-                sortedMiddle = sortedMiddle.OrderBy(x => spec.middle[x.key].priority).ToList();
+                sortedMiddle = sortedMiddle.OrderBy(x => spec.middle[x.key].priority).ToList(); //encode the 'priority' attribute as the order of the entires
                 writeFile.Write(((short)sortedMiddle.Count));
                 for (int i = sortedMiddle.Count - 1; i >= 0; i--)
                 {
@@ -453,7 +445,7 @@ namespace Nomenclature_Namer
                     writeFile.Write(sortedMiddle[i].name);
                 }
                 List<(string key, bool middleOnly, bool endOnly, string prefix, string suffix)> sortedSuffixes = spec.prefixOrSuffix.Select(kv => (kv.Key, false, false, kv.Value.prefix, kv.Value.suffix)).ToList();
-                sortedSuffixes.AddRange(spec.endDependentPrefixOrSuffix.Select(kv => (kv.Key, true, false, kv.Value.middle.prefix, kv.Value.middle.suffix)).ToList()); //middle only, end only
+                sortedSuffixes.AddRange(spec.endDependentPrefixOrSuffix.Select(kv => (kv.Key, true, false, kv.Value.middle.prefix, kv.Value.middle.suffix)).ToList()); //boolean second and third terms represent 'middle only' and 'end only' respectively
                 sortedSuffixes.AddRange(spec.endDependentPrefixOrSuffix.Select(kv => (kv.Key, false, true, kv.Value.end.prefix, kv.Value.end.suffix)).ToList());
                 sortedSuffixes = sortedSuffixes.OrderBy(x => getPriorityForSuffixSort(x)).ToList();
                 writeFile.Write(((short)sortedSuffixes.Count));
@@ -481,7 +473,7 @@ namespace Nomenclature_Namer
                     {
                         return spec.prefixOrSuffix[x.key].priority;
                     }
-                }
+                } //function because different entries stored in different dictionaries
             }
         }
         private static namingSpec LoadSpecification(string fileName)
@@ -538,25 +530,24 @@ namespace Nomenclature_Namer
                     bool endOnly = readFile.ReadBoolean();
                     string prefix = readFile.ReadString();
                     string suffix = readFile.ReadString();
-                    //List<((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)> entires = new List<((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end)>();
                     if (middleOnly)
                     {
-                        if (spec.endDependentPrefixOrSuffix.ContainsKey(key)) //hard to form back - does this work??
+                        if (spec.endDependentPrefixOrSuffix.ContainsKey(key)) //end version of this entry already recorded, now ading the middle version
                         {
                             ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end) v = spec.endDependentPrefixOrSuffix[key];
                             v.middle.prefix = prefix;
                             v.middle.suffix = suffix;
                             v.middle.priority = i + 1;
-                            spec.endDependentPrefixOrSuffix[key] = v; //cannot mutate dictionary complex return values while inside dictionary
+                            spec.endDependentPrefixOrSuffix[key] = v; //cannot mutate complex values in a dictionary without overwriting the entry completely
                         }
-                        else
+                        else //this entry does not exist- make it new for this key
                         {
                             spec.endDependentPrefixOrSuffix.Add(key, ((prefix, suffix, i + 1), ("", "", -1)));
                         }
                     }
                     else if (endOnly)
                     {
-                        if (spec.endDependentPrefixOrSuffix.ContainsKey(key))
+                        if (spec.endDependentPrefixOrSuffix.ContainsKey(key)) //middle version of this entry already recorded, now ading the end version
                         {
                             ((string prefix, string suffix, int priority) middle, (string prefix, string suffix, int priority) end) v = spec.endDependentPrefixOrSuffix[key];
                             v.end.prefix = prefix;
@@ -564,14 +555,14 @@ namespace Nomenclature_Namer
                             v.end.priority = i + 1;
                             spec.endDependentPrefixOrSuffix[key] = v;
                         }
-                        else
+                        else //this entry does not exist- make it new for this key
                         {
                             spec.endDependentPrefixOrSuffix.Add(key, (("", "", -1), (prefix, suffix, i + 1)));
                         }
                     }
                     else
                     {
-                        if (spec.prefixOrSuffix.ContainsKey(key))
+                        if (spec.prefixOrSuffix.ContainsKey(key)) //already recorded somehow, overwrite it
                         {
                             (string prefix, string suffix, int priority) v = spec.prefixOrSuffix[key];
                             v.prefix = prefix;
@@ -589,79 +580,18 @@ namespace Nomenclature_Namer
             }
             return spec;
         }
-        private void CheckGroups(List<FunctionalGroup> groups)
+        private void CheckGroups(List<FunctionalGroup> groups) //this check happpens after the merging step, so this checks the final groups before thay are named
         {
-
             foreach (FunctionalGroup g in groups)
             {
                 if (!spec.prefixOnly.ContainsKey(g.GroupFormula) && !spec.prefixOrSuffix.ContainsKey(g.GroupFormula) && !spec.endDependentPrefixOrSuffix.ContainsKey(g.GroupFormula) && !spec.middle.ContainsKey(g.GroupFormula))
                 {
-
-                    throw new Exception($"{g.GroupFormula} is unrecognised");
+                    throw new Exception($"{g.GroupFormula} is unrecognised"); //if none of the dictionaries have entries relating to this group
                 }
             }
         }
-        /*private void FindHighestPrioritySuffix()
-        {
-            //return groups.MaxBy(x => spec.prefixOrSuffix[x.GroupFormula].priority).GroupFormula;
-            int priority = -1;
-            foreach (FunctionalGroup fg in groups)
-            {
-                int currentPriority;
-                if (spec.prefixOrSuffix.ContainsKey(fg.GroupFormula))
-                {
-                    currentPriority = spec.prefixOrSuffix[fg.GroupFormula].priority;
-                }
-                else if (spec.endDependentPrefixOrSuffix.ContainsKey(fg.GroupFormula))
-                {
-
-                    if (atoms.IsAnEnd(fg.MainIndex))
-                    {
-                        currentPriority = spec.endDependentPrefixOrSuffix[fg.GroupFormula].end.priority;
-                    }
-                    else
-                    {
-                        currentPriority = spec.endDependentPrefixOrSuffix[fg.GroupFormula].middle.priority;
-                    }
-                }
-                else
-                {
-                    continue;
-                }
-                if (currentPriority > priority)
-                {
-                    priority = currentPriority;
-                }
-            }
-            foreach (KeyValuePair<string, (string, string, int priority)> v in spec.prefixOrSuffix)
-            {
-                if (v.Value.priority == priority)
-                {
-                    suffixFormula = v.Key;
-                    suffixRoot = spec.prefixOrSuffix[v.Key].suffix;
-                }
-            }
-            foreach (KeyValuePair<string, ((string, string, int priority) middle, (string, string, int priority) end)> v in spec.endDependentPrefixOrSuffix)
-            {
-                if (v.Value.middle.priority == priority)
-                {
-                    suffixIsMiddle = true;
-                    suffixIsEnd = false;
-                    suffixFormula = v.Key;
-                    suffixRoot = spec.endDependentPrefixOrSuffix[v.Key].middle.suffix;
-                }
-                if (v.Value.end.priority == priority)
-                {
-                    suffixIsMiddle = false;
-                    suffixIsEnd = true;
-                    suffixFormula = v.Key;
-                    suffixRoot = spec.endDependentPrefixOrSuffix[v.Key].end.suffix;
-                }
-            }
-        }*/
         private void FindHighestPrioritySuffix()
         {
-            //return groups.MaxBy(x => spec.prefixOrSuffix[x.GroupFormula].priority).GroupFormula;
             int maxPriority = -1;
             foreach (FunctionalGroup fg in groups)
             {
@@ -675,15 +605,15 @@ namespace Nomenclature_Namer
                         suffixIsMiddle = false;
                         suffixIsEnd = false;
                         suffixFormula = fg.GroupFormula;
-                        suffixRoot = spec.prefixOrSuffix[fg.GroupFormula].suffix;
+                        suffixRoot = spec.prefixOrSuffix[fg.GroupFormula].suffix; //these variables are set assuming this is the highest priority suffix. if not, these are overwritten next iter.
                     }
                 }
-                else if (spec.endDependentPrefixOrSuffix.ContainsKey(fg.GroupFormula))
+                else if (spec.endDependentPrefixOrSuffix.ContainsKey(fg.GroupFormula)) //the group is enddependent
                 {
 
-                    if (atoms.IsAnEnd(fg.MainIndex))
+                    if (atoms.IsAnEnd(fg.MainIndex)) //the group is on an end, so the end based info will be used
                     {
-                        currentPriority = spec.endDependentPrefixOrSuffix[fg.GroupFormula].end.priority;
+                        currentPriority = spec.endDependentPrefixOrSuffix[fg.GroupFormula].end.priority; //note that the end priority different than the middle one
                         if (currentPriority > maxPriority)
                         {
                             maxPriority = currentPriority;
@@ -693,7 +623,7 @@ namespace Nomenclature_Namer
                             suffixRoot = spec.endDependentPrefixOrSuffix[fg.GroupFormula].end.suffix;
                         }
                     }
-                    else
+                    else //the group is in the middle, so the middle based info will be used
                     {
                         currentPriority = spec.endDependentPrefixOrSuffix[fg.GroupFormula].middle.priority;
                         if (currentPriority > maxPriority)
@@ -710,7 +640,6 @@ namespace Nomenclature_Namer
         }
         private string FindHighestPriorityMiddleFormula()
         {
-            //return groups.MaxBy(x => spec.middle[x.GroupFormula].priority).GroupFormula;
             int priority = -1;
             foreach (FunctionalGroup fg in groups)
             {
@@ -733,7 +662,7 @@ namespace Nomenclature_Namer
             }
             return formula;
         }
-        public static void RestoreDefaultSpecifications()
+        public static void RestoreDefaultSpecifications() //only place with hard coded chemistry words
         {
             namingSpec fullSpec = new namingSpec();
             fullSpec.merging = new Dictionary<HashSet<string>, string>();
@@ -741,7 +670,7 @@ namespace Nomenclature_Namer
             fullSpec.middle = new Dictionary<string, (string, int)>();
             fullSpec.prefixOrSuffix = new Dictionary<string, (string, string, int)>();
             fullSpec.endDependentPrefixOrSuffix = new Dictionary<string, ((string, string, int), (string, string, int))>();
-            fullSpec.alkylNames = new string[] { "", "meth|a", "eth|a", "prop|a", "but|a", "pent|a", "hex|a", "hept|a", "oct|a", "non|a", "dec|a" }; // symbol to denote no double vowel here
+            fullSpec.alkylNames = new string[] { "", "meth|a", "eth|a", "prop|a", "but|a", "pent|a", "hex|a", "hept|a", "oct|a", "non|a", "dec|a" }; //symbol to denote no double vowel is '|'
             fullSpec.numericalPrefixes = new string[] { "", "", "di", "tri", "tetra", "penta", "hexa", "hepta", "octa", "nona" };
             fullSpec.merging.Add(new HashSet<string> { "C-O", "C=O" }, "COOH");
             fullSpec.merging.Add(new HashSet<string> { "C-Cl", "C=O" }, "COCl");
@@ -762,7 +691,7 @@ namespace Nomenclature_Namer
             fullSpec.prefixOrSuffix.Add("C-S", ("sulfanyl", "thiol", 3));
             fullSpec.prefixOrSuffix.Add("C-N", ("amino", "amine", 2));
             fullSpec.prefixOrSuffix.Add("C=N", ("imino", "imine", 1));
-            // using this resource https://iupac.org/wp-content/uploads/2021/06/Organic-Brief-Guide-brochure_v1.1_June2021.pdf
+            //using this resource https://iupac.org/wp-content/uploads/2021/06/Organic-Brief-Guide-brochure_v1.1_June2021.pdf
             SaveSpecification("AllGroups", fullSpec);
 
             namingSpec hcarbonSpec = new namingSpec();

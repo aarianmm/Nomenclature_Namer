@@ -1,5 +1,5 @@
-﻿using Nomenclature_Namer;
-
+﻿//All tests were conducted using the following main method:
+using Nomenclature_Namer;
 IUPAC.RestoreDefaultSpecifications();
 ElementGraph.RestoreDefaultPeriodicTable();
 ElementGraph graph = new ElementGraph("default");
