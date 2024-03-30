@@ -18,7 +18,7 @@ namespace Nomenclature_Namer
         }
         private readonly namingSpec spec;
         public string[] names;
-        private List<(List<int> path, List<List<int>> branches)> allPathsAndBranches;
+        private List<(List<int> chain, List<List<int>> branches)> allChainsAndBranches;
         private string suffixFormula;
         private string suffixRoot;
         private bool suffixIsEnd;
@@ -32,27 +32,27 @@ namespace Nomenclature_Namer
             groups = atoms.Groups;
             CheckGroups(groups); //make sure the binary file conatins info for all the groups in this molecule
             //naming
-            List<List<int>> longestPaths = atoms.FindEveryLongestPath();
-            allPathsAndBranches = NarrowDownPathsByBranches(longestPaths);
+            List<List<int>> possibleChains = atoms.FindEveryLongestPath();
+            allChainsAndBranches = NarrowDownChainsByBranches(possibleChains);
             suffixFormula = "";
             suffixRoot = "";
             FindHighestPrioritySuffix();
-            if (longestPaths.Count == 0)
+            if (possibleChains.Count == 0)
             {
                 throw new Exception("Impossibe to name, as branches must be empty.");
             }
-            if (longestPaths.Count != 1)
+            if (possibleChains.Count != 1)
             {
-                NarrowDownPathsByLength();
-                if (longestPaths.Count != 1)
+                NarrowDownChainsByLength();
+                if (possibleChains.Count != 1)
                 {
-                    NarrowDownPathsBySuffix();
-                    if (longestPaths.Count != 1)
+                    NarrowDownChainsBySuffix();
+                    if (possibleChains.Count != 1)
                     {
-                        NarrowDownPathsByMiddle();
-                        if (longestPaths.Count != 1)
+                        NarrowDownChainsByMiddle();
+                        if (possibleChains.Count != 1)
                         {
-                            NarrowDownPathsByPrefixes();
+                            NarrowDownChainsByPrefixes();
                         }
                     }
                 }
@@ -66,15 +66,15 @@ namespace Nomenclature_Namer
         }
         private string[] ConstructName()
         {
-            string[] names = new string[allPathsAndBranches.Count];
-            for (int i = 0; i < allPathsAndBranches.Count; i++)
+            string[] names = new string[allChainsAndBranches.Count];
+            for (int i = 0; i < allChainsAndBranches.Count; i++)
             {
-                List<int> path = allPathsAndBranches[i].path;
-                List<List<int>> branches = allPathsAndBranches[i].branches;
-                string longestAlkylName = spec.alkylNames[path.Count];
-                Dictionary<string, List<int>> prefixCarbons = FindPrefixCarbons(path, branches);
-                Dictionary<string, List<int>> middleCarbons = FindMiddleCarbons(path);
-                List<int> suffixCarbonsList = FindSuffixCarbons(path);
+                List<int> chain = allChainsAndBranches[i].chain;
+                List<List<int>> branches = allChainsAndBranches[i].branches;
+                string longestAlkylName = spec.alkylNames[chain.Count];
+                Dictionary<string, List<int>> prefixCarbons = FindPrefixCarbons(chain, branches);
+                Dictionary<string, List<int>> middleCarbons = FindMiddleCarbons(chain);
+                List<int> suffixCarbonsList = FindSuffixCarbons(chain);
                 Dictionary<string, List<int>> suffixCarbons = new Dictionary<string, List<int>> { { suffixRoot, suffixCarbonsList } };
                 string prefixName = NameSegment(prefixCarbons);
                 string middleName = NameSegment(middleCarbons);
@@ -95,32 +95,32 @@ namespace Nomenclature_Namer
             name = endDashes.Replace(name, (m) => m.Groups[1].Value + "-" + m.Groups[2].Value);
             return name;
         }
-        private List<(List<int> path, List<List<int>> branches)> NarrowDownPathsByBranches(List<List<int>> paths)
+        private List<(List<int> chain, List<List<int>> branches)> NarrowDownChainsByBranches(List<List<int>> chains)
         {
-            List<(List<int> path, List<List<int>> branches)> allPathsAndBranches = new List<(List<int> path, List<List<int>> branches)>();
-            foreach (List<int> path in paths)
+            List<(List<int> chain, List<List<int>> branches)> allChainsAndBranches = new List<(List<int> chain, List<List<int>> branches)>();
+            foreach (List<int> chain in chains)
             {
-                List<List<int>> branches = atoms.FindBranches(path);
-                allPathsAndBranches.Add((path, branches));
+                List<List<int>> branches = atoms.FindBranches(chain);
+                allChainsAndBranches.Add((chain, branches));
             }
-            for (int i = allPathsAndBranches.Count - 1; i >= 0; i--)
+            for (int i = allChainsAndBranches.Count - 1; i >= 0; i--)
             {
-                List<List<int>> branches = allPathsAndBranches[i].branches;
+                List<List<int>> branches = allChainsAndBranches[i].branches;
                 if (!CheckBranchValidity(branches))
                 {
-                    allPathsAndBranches.RemoveAt(i); //branch invalid, so whole path invalid
+                    allChainsAndBranches.RemoveAt(i); //branch invalid, so whole chain invalid
                 }
             }
-            return allPathsAndBranches;
+            return allChainsAndBranches;
         }
-        private void NarrowDownPathsByPrefixes()
+        private void NarrowDownChainsByPrefixes()
         {
             List<int> prefixesCarbonSums = new List<int>();
-            for (int i = 0; i < allPathsAndBranches.Count; i++)
+            for (int i = 0; i < allChainsAndBranches.Count; i++)
             {
-                List<int> path = allPathsAndBranches[i].path;
-                List<List<int>> branches = allPathsAndBranches[i].branches;
-                List<List<int>> prefixCarbons = FindPrefixCarbons(path, branches).Values.ToList();
+                List<int> chain = allChainsAndBranches[i].chain;
+                List<List<int>> branches = allChainsAndBranches[i].branches;
+                List<List<int>> prefixCarbons = FindPrefixCarbons(chain, branches).Values.ToList();
                 int prefixCarbonSum = 0;
                 foreach (List<int> a in prefixCarbons)
                 {
@@ -129,72 +129,72 @@ namespace Nomenclature_Namer
                 prefixesCarbonSums.Add(prefixCarbonSum);
             }
             int lowestSum = prefixesCarbonSums.Min();
-            for (int i = allPathsAndBranches.Count - 1; i >= 0; i--)  //negative iter. as mutating size of list
+            for (int i = allChainsAndBranches.Count - 1; i >= 0; i--)  //negative iter. as mutating size of list
             {
                 if (prefixesCarbonSums[i] != lowestSum)
                 {
-                    allPathsAndBranches.RemoveAt(i);
+                    allChainsAndBranches.RemoveAt(i);
                 }
             }
         }
-        private void NarrowDownPathsByMiddle()
+        private void NarrowDownChainsByMiddle()
         {
             string middlePriorityFormula = FindHighestPriorityMiddleFormula();
             string middlePriorityName = spec.middle[middlePriorityFormula].name;
             List<int> middleCarbonSums = new List<int>();
-            for (int i = 0; i < allPathsAndBranches.Count; i++)
+            for (int i = 0; i < allChainsAndBranches.Count; i++)
             {
-                List<int> path = allPathsAndBranches[i].path;
-                List<int> middleCarbons = FindMiddleCarbons(path)[middlePriorityName];
+                List<int> chain = allChainsAndBranches[i].chain;
+                List<int> middleCarbons = FindMiddleCarbons(chain)[middlePriorityName];
                 int middleCarbonSum = middleCarbons.Sum();
                 middleCarbonSums.Add(middleCarbonSum);
             }
             int lowestSum = middleCarbonSums.Min();
-            for (int i = allPathsAndBranches.Count - 1; i >= 0; i--)
+            for (int i = allChainsAndBranches.Count - 1; i >= 0; i--)
             {
                 if (middleCarbonSums[i] != lowestSum)
                 {
-                    allPathsAndBranches.RemoveAt(i);
+                    allChainsAndBranches.RemoveAt(i);
                 }
             }
         }
-        private void NarrowDownPathsBySuffix()
+        private void NarrowDownChainsBySuffix()
         {
             List<int> suffixCarbonSums = new List<int>();
-            for (int i = 0; i < allPathsAndBranches.Count; i++)
+            for (int i = 0; i < allChainsAndBranches.Count; i++)
             {
-                List<int> path = allPathsAndBranches[i].path;
-                List<int> suffixCarbons = FindSuffixCarbons(path);
+                List<int> chain = allChainsAndBranches[i].chain;
+                List<int> suffixCarbons = FindSuffixCarbons(chain);
                 int suffixCarbonSum = suffixCarbons.Sum();
                 suffixCarbonSums.Add(suffixCarbonSum);
             }
             int lowestSum = suffixCarbonSums.Min();
-            for (int i = allPathsAndBranches.Count - 1; i >= 0; i--)
+            for (int i = allChainsAndBranches.Count - 1; i >= 0; i--)
             {
                 if (suffixCarbonSums[i] != lowestSum)
                 {
-                    allPathsAndBranches.RemoveAt(i);
+                    allChainsAndBranches.RemoveAt(i);
                 }
             }
         }
-        private void NarrowDownPathsByLength()
+        private void NarrowDownChainsByLength()
         {
-            int longest = allPathsAndBranches.MaxBy(x => x.path.Count).path.Count;
-            for (int i = allPathsAndBranches.Count - 1; i >= 0; i--)
+            int longest = allChainsAndBranches.MaxBy(x => x.chain.Count).chain.Count;
+            for (int i = allChainsAndBranches.Count - 1; i >= 0; i--)
             {
-                if (allPathsAndBranches[i].path.Count < longest)
+                if (allChainsAndBranches[i].chain.Count < longest)
                 {
-                    allPathsAndBranches.RemoveAt(i);
+                    allChainsAndBranches.RemoveAt(i);
                 }
             }
         }
-        private Dictionary<string, List<int>> FindPrefixCarbons(List<int> path, List<List<int>> branches)
+        private Dictionary<string, List<int>> FindPrefixCarbons(List<int> chain, List<List<int>> branches)
         {
             Dictionary<string, List<int>> prefixesAndIndexes = new Dictionary<string, List<int>>();
             foreach (FunctionalGroup group in groups)
             {
                 string name = "";
-                int carbonNumber = path.IndexOf(group.MainIndex) + 1; //carbon number is position in carbon chain / path
+                int carbonNumber = chain.IndexOf(group.MainIndex) + 1; //carbon number is position in carbon chain
                 if (group.GroupFormula != suffixFormula) //group is not the suffix one, so belongs in the prefix
                 {
                     if (spec.prefixOnly.ContainsKey(group.GroupFormula))
@@ -231,7 +231,7 @@ namespace Nomenclature_Namer
             }
             foreach (List<int> branch in branches)
             {
-                int carbonNumber = path.IndexOf(branch[0]) + 1;
+                int carbonNumber = chain.IndexOf(branch[0]) + 1;
                 string name = spec.alkylNames[branch.Count - 1] + "yl";
                 if (prefixesAndIndexes.ContainsKey(name))
                 {
@@ -244,7 +244,7 @@ namespace Nomenclature_Namer
             }
             return prefixesAndIndexes;
         }
-        private Dictionary<string, List<int>> FindMiddleCarbons(List<int> path)
+        private Dictionary<string, List<int>> FindMiddleCarbons(List<int> chain)
         {
             Dictionary<string, List<int>> middleAndIndexes = new Dictionary<string, List<int>>();
             foreach (FunctionalGroup group in groups)
@@ -253,8 +253,8 @@ namespace Nomenclature_Namer
                 {
                     CarbonCarbonGroup cgroup = (CarbonCarbonGroup)group;
                     int carbonNumber;
-                    int carbonNumberOne = path.IndexOf(cgroup.MainIndex) + 1;
-                    int carbonNumberTwo = path.IndexOf(cgroup.OtherCarbonIndex) + 1;
+                    int carbonNumberOne = chain.IndexOf(cgroup.MainIndex) + 1;
+                    int carbonNumberTwo = chain.IndexOf(cgroup.OtherCarbonIndex) + 1;
                     if (carbonNumberOne < carbonNumberTwo) //these groups contain two carbons, so have two numbers to choose from. the lowest is chosen
                     {
                         carbonNumber = carbonNumberOne;
@@ -280,7 +280,7 @@ namespace Nomenclature_Namer
             }
             return middleAndIndexes;
         }
-        private List<int> FindSuffixCarbons(List<int> path)
+        private List<int> FindSuffixCarbons(List<int> chain)
         {
             List<int> indexes = new List<int>();
             foreach (FunctionalGroup group in groups)
@@ -290,7 +290,7 @@ namespace Nomenclature_Namer
                 bool groupAndSuffixAreEnd = suffixIsEnd && atoms.IsAnEnd(group.MainIndex);
                 if (group.GroupFormula == suffixFormula && (!endsAreInvolved || groupAndSuffixAreMiddle || groupAndSuffixAreEnd))
                 {
-                    indexes.Add(path.IndexOf(group.MainIndex) + 1);
+                    indexes.Add(chain.IndexOf(group.MainIndex) + 1);
                 }
             }
             return indexes;
