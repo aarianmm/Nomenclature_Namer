@@ -1,4 +1,4 @@
-# Nomenclature Namer
+# Organic Chemistry Aid
 ## Introduction
 This tool converts the structure of a molecule into its IUPAC name. It was created for the following purposes:
 1. To help beginners practice Organic Chemistry naming conventions
